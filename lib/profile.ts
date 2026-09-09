@@ -15,6 +15,7 @@ export type ProfileUser = {
   theme?: string | null
   notifications?: boolean | null
   isOnline?: boolean | null
+  openingHours?: Record<string, { open: string; close: string; active: boolean }> | null
 }
 
 export function toProfile(user: ProfileUser): UserProfile {
@@ -31,5 +32,6 @@ export function toProfile(user: ProfileUser): UserProfile {
     theme: user.theme === 'light' || user.theme === 'system' ? user.theme : 'dark',
     notifications: user.notifications ?? true,
     isOnline: user.isOnline ?? false,
+    openingHours: user.openingHours ?? null,
   }
 }

@@ -1,42 +1,43 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Check, X } from 'lucide-react'
 import { apiClient } from '@/lib/api-client'
 import { centsToMoney, type BarberService } from '@/lib/contracts'
 
 type Props = { barber: { id: string; name: string }; onClose: () => void }
 
-function upcomingSlots() {
-  const now = new Date()
-  const slots: Date[] = []
-  const candidates: Array<[number, number]> = [
-    [0, 9], [0, 10], [0, 11], [0, 14], [0, 15], [0, 16], [0, 17], [0, 18],
-    [1, 9], [1, 10], [1, 11], [1, 14], [1, 15], [1, 16], [1, 17], [1, 18],
-  ]
-  for (const [dayOffset, hour] of candidates) {
-    const date = new Date(now.getFullYear(), now.getMonth(), now.getDate() + dayOffset, hour, 0, 0)
-    if (date > now) slots.push(date)
-  }
-  return slots
+const DAYS_AHEAD = 14
+
+function dateKey(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 }
 
-function slotLabel(date: Date) {
+function upcomingDays() {
   const now = new Date()
-  const sameDay = date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth() && date.getDate() === now.getDate()
-  const time = date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
-  return sameDay ? `Hoje ${time}` : `Amanhã ${time}`
+  return Array.from({ length: DAYS_AHEAD }, (_, i) => new Date(now.getFullYear(), now.getMonth(), now.getDate() + i))
+}
+
+function dayLabel(date: Date) {
+  const now = new Date()
+  if (dateKey(date) === dateKey(now)) return 'Hoje'
+  const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)
+  if (dateKey(date) === dateKey(tomorrow)) return 'Amanhã'
+  return date.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' })
 }
 
 export function BookingModal({ barber, onClose }: Props) {
   const [services, setServices] = useState<BarberService[]>([])
   const [serviceId, setServiceId] = useState<string | null>(null)
-  const [scheduledAt, setScheduledAt] = useState<Date | null>(null)
+  const [selectedDay, setSelectedDay] = useState(() => dateKey(new Date()))
+  const [slots, setSlots] = useState<string[]>([])
+  const [loadingSlots, setLoadingSlots] = useState(false)
+  const [scheduledAt, setScheduledAt] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [done, setDone] = useState(false)
 
-  const slots = useMemo(() => upcomingSlots(), [])
+  const days = upcomingDays()
 
   useEffect(() => {
     let active = true
@@ -44,11 +45,24 @@ export function BookingModal({ barber, onClose }: Props) {
     return () => { active = false }
   }, [barber.id])
 
+  useEffect(() => {
+    if (!serviceId) { setSlots([]); return }
+    let active = true
+    setLoadingSlots(true)
+    setScheduledAt(null)
+    apiClient.listAvailability(barber.id, serviceId, selectedDay).then((res) => {
+      if (!active) return
+      setLoadingSlots(false)
+      setSlots(res.data?.slots ?? [])
+    })
+    return () => { active = false }
+  }, [barber.id, serviceId, selectedDay])
+
   async function submit() {
     if (!serviceId || !scheduledAt) return
     setSubmitting(true)
     setError(null)
-    const result = await apiClient.createBooking({ barberId: barber.id, serviceId, scheduledAt: scheduledAt.toISOString() })
+    const result = await apiClient.createBooking({ barberId: barber.id, serviceId, scheduledAt })
     setSubmitting(false)
     if (result.error) setError(result.error)
     else setDone(true)
@@ -93,14 +107,33 @@ export function BookingModal({ barber, onClose }: Props) {
         </div>
 
         <div className="mt-6">
-          <p className="text-sm font-medium">Horário</p>
-          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
-            {slots.map((slot) => (
-              <button key={slot.toISOString()} type="button" onClick={() => setScheduledAt(slot)} className={`rounded-xl border px-3 py-2.5 text-xs ${scheduledAt?.getTime() === slot.getTime() ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:border-primary/50'}`}>
-                {slotLabel(slot)}
-              </button>
-            ))}
+          <p className="text-sm font-medium">Dia</p>
+          <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+            {days.map((day) => {
+              const key = dateKey(day)
+              return (
+                <button key={key} type="button" onClick={() => setSelectedDay(key)} className={`shrink-0 rounded-xl border px-3 py-2 text-xs ${selectedDay === key ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:border-primary/50'}`}>
+                  {dayLabel(day)}
+                </button>
+              )
+            })}
           </div>
+        </div>
+
+        <div className="mt-6">
+          <p className="text-sm font-medium">Horário</p>
+          {!serviceId && <p className="mt-3 rounded-xl border border-dashed border-border p-4 text-center text-sm text-muted-foreground">Escolha um serviço para ver os horários.</p>}
+          {serviceId && loadingSlots && <p className="mt-3 rounded-xl border border-dashed border-border p-4 text-center text-sm text-muted-foreground">Carregando horários...</p>}
+          {serviceId && !loadingSlots && slots.length === 0 && <p className="mt-3 rounded-xl border border-dashed border-border p-4 text-center text-sm text-muted-foreground">Nenhum horário disponível neste dia.</p>}
+          {serviceId && !loadingSlots && slots.length > 0 && (
+            <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4">
+              {slots.map((slot) => (
+                <button key={slot} type="button" onClick={() => setScheduledAt(slot)} className={`rounded-xl border px-3 py-2.5 text-xs ${scheduledAt === slot ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:border-primary/50'}`}>
+                  {new Date(slot).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {error && <p className="mt-4 rounded-xl bg-destructive/10 px-4 py-3 text-sm text-destructive">{error}</p>}

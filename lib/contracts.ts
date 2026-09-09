@@ -13,6 +13,7 @@ export type UserProfile = {
   theme: 'dark' | 'light' | 'system'
   notifications: boolean
   isOnline: boolean
+  openingHours: Record<string, { open: string; close: string; active: boolean }> | null
 }
 
 export type UpdateProfilePayload = Partial<Omit<UserProfile, 'id' | 'role' | 'email'>>
@@ -100,6 +101,8 @@ export type BarberSearchFilters = {
   neighborhood?: string
   onlyOnline: boolean
 }
+
+export type AvailabilityResponse = { slots: string[] }
 
 export type ApiResult<T> = { data: T | null; error: string | null }
 
