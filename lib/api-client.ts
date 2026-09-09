@@ -33,6 +33,8 @@ export const apiClient = {
   updateService: (id: string, payload: Partial<ServicePayload>) => request<BarberService>(`${API_ENDPOINTS.services}/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
   listBookings: () => request<BookingWithDetails[]>(API_ENDPOINTS.bookings),
   listFinances: () => request<FinancialEntry[]>(API_ENDPOINTS.finances),
+  createFinanceEntry: (payload: { type: 'income' | 'expense'; category: string; description: string; amountCents: number }) =>
+    request<FinancialEntry>(API_ENDPOINTS.finances, { method: 'POST', body: JSON.stringify(payload) }),
   listBarberServices: (barberId: string) => request<BarberService[]>(`/api/barbers/${barberId}/services`),
   listAvailability: (barberId: string, serviceId: string, date: string) => request<AvailabilityResponse>(`/api/barbers/${barberId}/availability?${new URLSearchParams({ serviceId, date })}`),
   createBooking: (payload: BookingPayload) => request<Booking>(API_ENDPOINTS.createBooking, { method: 'POST', body: JSON.stringify(payload) }),

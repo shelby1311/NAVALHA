@@ -6,7 +6,7 @@ import { CalendarDays, Check, ChevronRight, Clock3, DollarSign, MapPin, Menu, Pl
 import { BookingModal } from '@/components/navalha/booking-modal'
 import { SettingsPanel } from '@/components/navalha/settings-panel'
 import { apiClient } from '@/lib/api-client'
-import { centsToMoney, type BarberService, type BookingStatus, type BookingWithDetails, type MyBooking, type UserProfile } from '@/lib/contracts'
+import { centsToMoney, type BarberService, type BookingStatus, type BookingWithDetails, type FinancialEntry, type MyBooking, type UserProfile } from '@/lib/contracts'
 
 type ViewMode = 'client' | 'barber'
 const POLL_INTERVAL_MS = 5000
@@ -26,6 +26,11 @@ function isCurrentMonth(dateStr: string) {
   const date = new Date(dateStr)
   const now = new Date()
   return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth()
+}
+
+function isLast7Days(dateStr: string) {
+  const date = new Date(dateStr).getTime()
+  return date >= Date.now() - 7 * 24 * 60 * 60_000 && date <= Date.now()
 }
 
 function statusLabel(status: string) {
@@ -269,10 +274,10 @@ function ClientHome({ profile }: { profile: UserProfile | null }) {
 }
 
 function BarberHome({ onSettings, profile }: { onSettings: () => void; profile: UserProfile }) {
-  const [section, setSection] = useState<'overview' | 'queue' | 'services'>('overview')
+  const [section, setSection] = useState<'overview' | 'queue' | 'services' | 'finance'>('overview')
   const [services, setServices] = useState<BarberService[]>([])
   const [bookings, setBookings] = useState<BookingWithDetails[]>([])
-  const [revenue, setRevenue] = useState(0)
+  const [finances, setFinances] = useState<FinancialEntry[]>([])
   const [name, setName] = useState('')
   const [price, setPrice] = useState('')
   const [duration, setDuration] = useState('')
@@ -281,10 +286,7 @@ function BarberHome({ onSettings, profile }: { onSettings: () => void; profile: 
   const load = useCallback(() => {
     apiClient.listServices().then((r) => r.data && setServices(r.data))
     apiClient.listBookings().then((r) => r.data && setBookings(r.data))
-    apiClient.listFinances().then((r) => {
-      if (!r.data) return
-      setRevenue(r.data.filter((e) => e.type === 'income' && isCurrentMonth(e.entryDate)).reduce((acc, e) => acc + e.amountCents, 0))
-    })
+    apiClient.listFinances().then((r) => r.data && setFinances(r.data))
   }, [])
 
   useEffect(() => { load() }, [load])
@@ -341,6 +343,28 @@ function BarberHome({ onSettings, profile }: { onSettings: () => void; profile: 
     }
   }
 
+  const [financePeriod, setFinancePeriod] = useState<'today' | 'week' | 'month'>('month')
+  const [entryType, setEntryType] = useState<'income' | 'expense'>('expense')
+  const [entryCategory, setEntryCategory] = useState('')
+  const [entryDescription, setEntryDescription] = useState('')
+  const [entryAmount, setEntryAmount] = useState('')
+
+  const periodFilter = financePeriod === 'today' ? isToday : financePeriod === 'week' ? isLast7Days : isCurrentMonth
+  const periodEntries = useMemo(
+    () => finances.filter((e) => periodFilter(e.entryDate)).sort((a, b) => b.entryDate.localeCompare(a.entryDate)),
+    [finances, financePeriod],
+  )
+  const periodIncome = periodEntries.filter((e) => e.type === 'income').reduce((acc, e) => acc + e.amountCents, 0)
+  const periodExpense = periodEntries.filter((e) => e.type === 'expense').reduce((acc, e) => acc + e.amountCents, 0)
+
+  async function addFinanceEntry(event: React.FormEvent) {
+    event.preventDefault()
+    const amountCents = Math.round(Number(entryAmount.replace(',', '.')) * 100)
+    if (!entryCategory.trim() || Number.isNaN(amountCents) || amountCents <= 0) return
+    const result = await apiClient.createFinanceEntry({ type: entryType, category: entryCategory.trim(), description: entryDescription.trim(), amountCents })
+    if (result.data) { setFinances((f) => [result.data as FinancialEntry, ...f]); setEntryCategory(''); setEntryDescription(''); setEntryAmount('') }
+  }
+
   function bookingActions(b: BookingWithDetails) {
     return actionsFor(b.status).map((action) => (
       <button key={action.to} onClick={() => changeStatus(b.id, action.to)} disabled={updating === b.id} className={`rounded-lg px-3 py-1.5 text-xs font-medium disabled:opacity-50 ${action.to === 'cancelled' ? 'bg-destructive/10 text-destructive' : 'bg-primary/10 text-primary'}`}>
@@ -349,17 +373,20 @@ function BarberHome({ onSettings, profile }: { onSettings: () => void; profile: 
     ))
   }
 
+  const monthRevenue = useMemo(() => finances.filter((e) => e.type === 'income' && isCurrentMonth(e.entryDate)).reduce((acc, e) => acc + e.amountCents, 0), [finances])
+
   const stats: { label: string; value: string; detail: string; Icon: LucideIcon }[] = [
     { label: 'Hoje', value: String(todayBookings.length), detail: 'agendamentos', Icon: CalendarDays },
     { label: 'Fila agora', value: String(queue.length), detail: 'clientes aguardando', Icon: Users },
-    { label: 'Receita do mês', value: centsToMoney(revenue), detail: 'entradas no mês', Icon: Wallet },
+    { label: 'Receita do mês', value: centsToMoney(monthRevenue), detail: 'entradas no mês', Icon: Wallet },
     { label: 'Online', value: profile.isOnline ? 'Ativo' : 'Inativo', detail: 'visível para clientes', Icon: Check },
   ]
 
-  const nav: { key: 'overview' | 'queue' | 'services'; label: string; icon: LucideIcon }[] = [
+  const nav: { key: 'overview' | 'queue' | 'services' | 'finance'; label: string; icon: LucideIcon }[] = [
     { key: 'overview', label: 'Visão geral', icon: CalendarDays },
     { key: 'queue', label: 'Fila ao vivo', icon: Users },
     { key: 'services', label: 'Serviços e preços', icon: DollarSign },
+    { key: 'finance', label: 'Financeiro', icon: Wallet },
   ]
 
   return (
@@ -488,6 +515,52 @@ function BarberHome({ onSettings, profile }: { onSettings: () => void; profile: 
                         </button>
                       </>
                     )}
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          {section === 'finance' && (
+            <>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h2 className="font-semibold">Financeiro</h2>
+                  <p className="mt-1 text-sm text-muted-foreground">Receitas (geradas automaticamente ao concluir um atendimento) e despesas.</p>
+                </div>
+                <div className="flex gap-1 rounded-xl border border-border bg-background p-1">
+                  {([['today', 'Hoje'], ['week', '7 dias'], ['month', 'Mês']] as const).map(([key, label]) => (
+                    <button key={key} onClick={() => setFinancePeriod(key)} className={`rounded-lg px-3 py-1.5 text-xs font-medium ${financePeriod === key ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}`}>{label}</button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="mt-5 grid gap-3 sm:grid-cols-3">
+                <div className="rounded-xl border border-border p-4"><p className="text-xs text-muted-foreground">Receitas</p><p className="mt-2 text-lg font-semibold text-emerald-400">{centsToMoney(periodIncome)}</p></div>
+                <div className="rounded-xl border border-border p-4"><p className="text-xs text-muted-foreground">Despesas</p><p className="mt-2 text-lg font-semibold text-destructive">{centsToMoney(periodExpense)}</p></div>
+                <div className="rounded-xl border border-border p-4"><p className="text-xs text-muted-foreground">Saldo</p><p className="mt-2 text-lg font-semibold">{centsToMoney(periodIncome - periodExpense)}</p></div>
+              </div>
+
+              <form onSubmit={addFinanceEntry} className="mt-6 grid gap-3 rounded-xl border border-border bg-background p-4 sm:grid-cols-[110px_1fr_1fr_120px_auto]">
+                <select value={entryType} onChange={(e) => setEntryType(e.target.value as 'income' | 'expense')} aria-label="Tipo" className="rounded-lg border border-input bg-background px-3 py-2.5 text-sm outline-none">
+                  <option value="expense">Despesa</option>
+                  <option value="income">Receita</option>
+                </select>
+                <input value={entryCategory} onChange={(e) => setEntryCategory(e.target.value)} placeholder="Categoria (ex.: Aluguel)" aria-label="Categoria" className="rounded-lg border border-input bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring" />
+                <input value={entryDescription} onChange={(e) => setEntryDescription(e.target.value)} placeholder="Descrição (opcional)" aria-label="Descrição" className="rounded-lg border border-input bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring" />
+                <input value={entryAmount} onChange={(e) => setEntryAmount(e.target.value)} placeholder="Valor (R$)" inputMode="decimal" aria-label="Valor" className="rounded-lg border border-input bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring" />
+                <button type="submit" className="flex items-center justify-center gap-1.5 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground"><Plus size={16} />Lançar</button>
+              </form>
+
+              <div className="mt-6 divide-y divide-border">
+                {periodEntries.length === 0 && <p className="py-6 text-center text-sm text-muted-foreground">Nenhum lançamento neste período.</p>}
+                {periodEntries.map((entry) => (
+                  <div key={entry.id} className="flex flex-wrap items-center gap-3 py-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium">{entry.category}{entry.description ? ` · ${entry.description}` : ''}</p>
+                      <p className="mt-0.5 text-xs text-muted-foreground">{new Date(entry.entryDate).toLocaleDateString('pt-BR')}</p>
+                    </div>
+                    <span className={`text-sm font-semibold ${entry.type === 'income' ? 'text-emerald-400' : 'text-destructive'}`}>{entry.type === 'income' ? '+' : '-'}{centsToMoney(entry.amountCents)}</span>
                   </div>
                 ))}
               </div>
