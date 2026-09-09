@@ -1,0 +1,76 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --font-sans: 'Inter', 'Inter Fallback';
+  --font-serif: 'Playfair Display', 'Georgia', serif;
+  --font-mono: 'Geist Mono', monospace;
+}
+
+:root { color-scheme: dark; --background: oklch(0.125 0.012 265); --foreground: oklch(0.965 0.01 90); --card: oklch(0.17 0.014 265); --card-foreground: oklch(0.965 0.01 90); --popover: oklch(0.17 0.014 265); --popover-foreground: oklch(0.965 0.01 90); --primary: oklch(0.78 0.14 80); --primary-foreground: oklch(0.16 0.03 75); --secondary: oklch(0.22 0.015 265); --secondary-foreground: oklch(0.9 0.01 90); --muted: oklch(0.22 0.015 265); --muted-foreground: oklch(0.64 0.015 265); --accent: oklch(0.24 0.025 80); --accent-foreground: oklch(0.9 0.08 80); --destructive: oklch(0.62 0.2 25); --border: oklch(1 0 0 / 10%); --input: oklch(1 0 0 / 12%); --ring: oklch(0.78 0.14 80); --radius: 0.75rem; }
+
+* { @apply border-border outline-ring/50; }
+html { background: var(--background); scroll-behavior: smooth; }
+body { @apply bg-background text-foreground font-sans; }
+::selection { background: color-mix(in oklch, var(--primary) 35%, transparent); color: var(--foreground); }
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: var(--background); }
+::-webkit-scrollbar-thumb { background: var(--muted); border-radius: 999px; }
+button, a { -webkit-tap-highlight-color: transparent; }
+
+/* Layout responsivo da Navalha: touch-first, sem overflow horizontal e com leitura confortável. */
+img, svg { max-width: 100%; }
+input, select, textarea, button { max-width: 100%; }
+
+@media (max-width: 767px) {
+  nav { flex-wrap: wrap; gap: 0.75rem; padding-inline: 1rem !important; }
+  nav > div:nth-child(2) { order: 3; display: flex !important; width: 100%; overflow-x: auto; scrollbar-width: none; }
+  nav > div:nth-child(2)::-webkit-scrollbar { display: none; }
+  nav > div:nth-child(2) button { flex: 1 0 auto; white-space: nowrap; }
+  nav > div:last-child { margin-left: auto; }
+  main > div { padding-inline: 1rem !important; padding-top: 1.5rem !important; padding-bottom: 6rem !important; }
+  h1 { max-width: 100%; font-size: clamp(1.75rem, 8vw, 2.25rem); line-height: 1.12; text-wrap: balance; }
+  section { min-width: 0; }
+  table { min-width: 560px; }
+  section:has(table) { overflow-x: auto; }
+  [class*="grid-cols-4"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  [class*="lg:grid-cols"] { grid-template-columns: minmax(0, 1fr); }
+  [class*="flex gap-3 rounded-2xl"] { flex-direction: column; }
+  [class*="flex gap-3 rounded-2xl"] button { min-height: 2.75rem; }
+}
+
+@media (min-width: 768px) and (max-width: 1199px) {
+  main > div { padding-inline: 2rem !important; }
+  [class*="lg:grid-cols"]:not([class*="grid-cols-4"]) { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (max-width: 420px) {
+  [class*="grid-cols-2"] { grid-template-columns: minmax(0, 1fr); }
+  [class*="grid-cols-4"] { grid-template-columns: minmax(0, 1fr); }
+  .text-2xl { font-size: 1.35rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+}

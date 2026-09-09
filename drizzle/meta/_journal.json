@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1788805366343,
+      "tag": "0000_lowly_silver_fox",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1788809134084,
+      "tag": "0001_perpetual_violations",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1788905900840,
+      "tag": "0002_parallel_redwing",
+      "breakpoints": true
+    }
+  ]
+}
