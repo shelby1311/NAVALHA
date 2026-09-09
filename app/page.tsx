@@ -296,6 +296,24 @@ function BarberHome({ onSettings, profile }: { onSettings: () => void; profile: 
     if (result.data) setServices((s) => s.map((x) => (x.id === service.id ? (result.data as BarberService) : x)))
   }
 
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editPrice, setEditPrice] = useState('')
+  const [editDuration, setEditDuration] = useState('')
+
+  function startEdit(service: BarberService) {
+    setEditingId(service.id)
+    setEditPrice((service.priceCents / 100).toFixed(2).replace('.', ','))
+    setEditDuration(String(service.durationMinutes))
+  }
+
+  async function saveEdit(id: string) {
+    const priceCents = Math.round(Number(editPrice.replace(',', '.')) * 100)
+    const durationMinutes = Number(editDuration)
+    if (Number.isNaN(priceCents) || priceCents <= 0 || Number.isNaN(durationMinutes) || durationMinutes <= 0) return
+    const result = await apiClient.updateService(id, { priceCents, durationMinutes })
+    if (result.data) { setServices((s) => s.map((x) => (x.id === id ? (result.data as BarberService) : x))); setEditingId(null) }
+  }
+
   async function changeStatus(id: string, status: BookingStatus) {
     setUpdating(id)
     const result = await apiClient.updateBookingStatus(id, status)
@@ -437,11 +455,22 @@ function BarberHome({ onSettings, profile }: { onSettings: () => void; profile: 
                     <div className="min-w-0 flex-1">
                       <p className={`text-sm font-medium ${service.active ? '' : 'text-muted-foreground line-through'}`}>{service.name}</p>
                     </div>
-                    <span className="text-sm font-semibold">{centsToMoney(service.priceCents)}</span>
-                    <span className="text-xs text-muted-foreground">{service.durationMinutes} min</span>
-                    <button onClick={() => toggleService(service)} className={`rounded-lg px-3 py-1.5 text-xs font-medium ${service.active ? 'bg-emerald-500/15 text-emerald-400' : 'bg-muted text-muted-foreground'}`}>
-                      {service.active ? 'Ativo' : 'Pausado'}
-                    </button>
+                    {editingId === service.id ? (
+                      <>
+                        <input value={editPrice} onChange={(e) => setEditPrice(e.target.value)} placeholder="Preço (R$)" inputMode="decimal" aria-label="Editar preço" className="w-24 rounded-lg border border-input bg-background px-2 py-1.5 text-xs outline-none" />
+                        <input value={editDuration} onChange={(e) => setEditDuration(e.target.value)} placeholder="Minutos" inputMode="numeric" aria-label="Editar duração" className="w-20 rounded-lg border border-input bg-background px-2 py-1.5 text-xs outline-none" />
+                        <button onClick={() => saveEdit(service.id)} className="rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground">Salvar</button>
+                        <button onClick={() => setEditingId(null)} className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium">Cancelar</button>
+                      </>
+                    ) : (
+                      <>
+                        <button onClick={() => startEdit(service)} className="text-sm font-semibold hover:underline">{centsToMoney(service.priceCents)}</button>
+                        <span className="text-xs text-muted-foreground">{service.durationMinutes} min</span>
+                        <button onClick={() => toggleService(service)} className={`rounded-lg px-3 py-1.5 text-xs font-medium ${service.active ? 'bg-emerald-500/15 text-emerald-400' : 'bg-muted text-muted-foreground'}`}>
+                          {service.active ? 'Ativo' : 'Pausado'}
+                        </button>
+                      </>
+                    )}
                   </div>
                 ))}
               </div>
