@@ -1,21 +1,11 @@
 import { and, eq, ne } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { DEFAULT_OPENING_HOURS, janelaDoDia } from '@/lib/business-hours'
+import { gerarHorariosDisponiveis } from '@/lib/domain/disponibilidade'
 import { db } from '@/lib/db'
 import { barberService, booking, user } from '@/lib/schema'
 
-const SLOT_STEP_MINUTES = 15
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
-
-/** Gera os horários de início possíveis (grade de 15 em 15 min) que cabem inteiros dentro do expediente. */
-function gerarSlots(day: Date, openingMinutes: number, closingMinutes: number, durationMinutes: number, now: Date) {
-  const slots: Date[] = []
-  for (let start = openingMinutes; start + durationMinutes <= closingMinutes; start += SLOT_STEP_MINUTES) {
-    const slot = new Date(day.getFullYear(), day.getMonth(), day.getDate(), 0, start, 0)
-    if (slot > now) slots.push(slot)
-  }
-  return slots
-}
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id: barberId } = await params
@@ -58,10 +48,13 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       return { start: b.scheduledAt, end: new Date(b.scheduledAt.getTime() + duration * 60_000) }
     })
 
-  const candidates = gerarSlots(day, janela.open, janela.close, service.durationMinutes, new Date())
-  const free = candidates.filter((slot) => {
-    const end = new Date(slot.getTime() + service.durationMinutes * 60_000)
-    return !busy.some((b) => slot < b.end && b.start < end)
+  const free = gerarHorariosDisponiveis({
+    day,
+    openingMinutes: janela.open,
+    closingMinutes: janela.close,
+    durationMinutes: service.durationMinutes,
+    now: new Date(),
+    ocupados: busy,
   })
 
   return NextResponse.json({ slots: free.map((s) => s.toISOString()) })
