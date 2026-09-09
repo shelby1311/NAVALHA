@@ -33,20 +33,23 @@ app/
   entrar/page.tsx              # login
   api/
     auth/[...all]/route.ts     # catch-all do better-auth (sign-up, sign-in, sessão...)
-    bookings/route.ts          # POST — cliente cria um agendamento
+    bookings/route.ts               # GET — cliente lista os próprios agendamentos · POST — cria um agendamento
+    bookings/[id]/route.ts          # PATCH — cliente cancela o próprio agendamento (regras no corpo do arquivo)
     barber/bookings/route.ts        # GET  — barbeiro lista os próprios agendamentos
     barber/bookings/[id]/route.ts   # PATCH — barbeiro muda o status de um agendamento
     barber/services/route.ts        # GET/POST — barbeiro lista/cria serviços
     barber/services/[id]/route.ts   # PATCH — barbeiro edita um serviço
-    barbers/search/route.ts         # GET — busca pública de barbeiros (cliente)
+    barbers/search/route.ts         # GET — busca pública de barbeiros (nome/cidade/bairro + distância)
     barbers/[id]/services/route.ts  # GET — serviços ativos de um barbeiro (público)
+    barbers/[id]/availability/route.ts # GET — horários realmente livres de um barbeiro num dia
     finance/entries/route.ts        # GET/POST — lançamentos financeiros do barbeiro
     profile/route.ts                # GET/PATCH — perfil do usuário autenticado
+    profile/avatar/route.ts         # POST — upload da foto de perfil (Vercel Blob)
     profile/preferences/route.ts    # PATCH — tema/notificações/status online
 
 components/
-  navalha/booking-modal.tsx    # modal de agendamento (cliente escolhe serviço + horário)
-  navalha/settings-panel.tsx   # painel de configurações do perfil (usado por client e barbeiro)
+  navalha/booking-modal.tsx    # modal de agendamento (cliente escolhe serviço, dia e horário real)
+  navalha/settings-panel.tsx   # painel de configurações do perfil (foto, dados, horário de funcionamento)
   ui/button.tsx                # componente shadcn
 
 lib/
@@ -55,15 +58,25 @@ lib/
   auth.ts                      # configuração do better-auth (campos extras de usuário, etc.)
   auth-api.ts                  # client-side: chama os endpoints REST do better-auth
   authz.ts                     # requireUser / requireRole — autenticação separada de autorização
-  business-hours.ts            # valida um horário contra o expediente do barbeiro
+  business-hours.ts            # janela de funcionamento do barbeiro (janelaDoDia/estaDentroDoHorario)
+  geocode.ts                   # geocodeAddress() (Nominatim) + haversineKm() para busca por distância
   contracts.ts                 # tipos compartilhados front/back + helpers (ex.: centsToMoney)
   api-client.ts                # client-side: wrapper de fetch para as rotas /api/*
   profile.ts                   # toProfile() — normaliza a linha do banco para UserProfile
+  business-hours.test.ts
   domain/
     agendamento.ts              # classe Agendamento — máquina de estados do booking
+    agendamento.test.ts
+    disponibilidade.ts          # gerarHorariosDisponiveis() — função pura usada pela rota de availability
+    disponibilidade.test.ts
+    servico.ts                  # classe Servico — encapsula preço/duração (setters validam)
+    servico.test.ts
+    financeiro.ts                # classe Financeiro — registrarReceita/estornar
+    usuario.ts                  # Usuario (abstrata) → Cliente/Barbeiro — permissoes() por papel
+    usuario.test.ts
 
 drizzle/
-  0000_*.sql, 0001_*.sql, 0002_*.sql   # migrações, nessa ordem
+  0000_*.sql .. 0003_*.sql     # migrações, nessa ordem
   meta/                                 # snapshots internos do drizzle-kit (não editar à mão)
 
 drizzle.config.ts              # aponta lib/schema.ts -> drizzle/, lê DATABASE_URL
@@ -79,7 +92,8 @@ pnpm-workspace.yaml            # allowBuilds (esbuild habilitado) + minimumRelea
 - **`user`** — também guarda o perfil de domínio da Navalha:
   - `role` (`'client' | 'barber'`), `phone`, `avatarUrl`, `businessName`, `city`, `neighborhood`
   - `theme`, `notifications`, `isOnline`
-  - `openingHours` (`json`, nullable) — horário de funcionamento por dia da semana: `{ mon: { open: "09:00", close: "19:00", active: true }, ... }`. **Ainda sem UI para o barbeiro preencher isso** (ver [Pendências](#pendências--o-que-falta)).
+  - `openingHours` (`json`, nullable) — horário de funcionamento por dia da semana: `{ mon: { open: "09:00", close: "19:00", active: true }, ... }`. Editável pelo barbeiro em `SettingsPanel`; usado tanto para validar `POST /api/bookings` quanto para gerar os horários de `GET /api/barbers/[id]/availability`.
+  - `latitude`/`longitude` (`double precision`, nullable) — geocodificados automaticamente a partir de `city`/`neighborhood` (ver `lib/geocode.ts`); nulos até o barbeiro salvar um endereço ou se a geocodificação falhar.
 - **`session`**, **`account`**, **`verification`** — geridas pelo better-auth, não mexer manualmente.
 
 ### Tabelas de domínio
@@ -126,23 +140,31 @@ A classe `Agendamento` é a **única fonte de verdade** dessa sequência — usa
 
 No front-end (`app/page.tsx`, função `actionsFor`), os botões de ação do barbeiro seguem exatamente essa sequência: Confirmar → Colocar na fila → Iniciar → Concluir, com Cancelar disponível em qualquer estado não-terminal.
 
+### Horários disponíveis (`GET /api/barbers/[id]/availability`)
+
+Recebe `serviceId` + `date` (`YYYY-MM-DD`) e devolve só horários **realmente livres**: parte da janela de funcionamento do dia (`janelaDoDia`, com `DEFAULT_OPENING_HOURS` para barbeiros que ainda não configuraram nada), gera uma grade de 15 em 15 min (`gerarHorariosDisponiveis`, em `lib/domain/disponibilidade.ts`), descarta horários no passado, descarta qualquer início cujo fim (considerando a duração do serviço) passe do fechamento, e descarta qualquer sobreposição com agendamentos ativos do barbeiro naquele dia. `BookingModal` usa essa rota (com um seletor de dia, 14 dias à frente) em vez de horários fixos.
+
 ### Criação de agendamento (`POST /api/bookings`)
 
 Dentro de uma transação, nesta ordem:
 1. Usuário autenticado (`requireUser`).
 2. Payload válido e `scheduledAt` no futuro.
-3. `barberId` existe e tem `role = 'barber'`.
-4. `serviceId` pertence a esse `barberId` (evita agendar um serviço de outro barbeiro).
-5. Serviço está `active`.
-6. Horário dentro do expediente (`estaDentroDoHorario`, permissivo se o barbeiro não configurou `openingHours`).
-7. Não sobrepõe outro agendamento ativo do mesmo barbeiro (considera a duração do serviço).
-8. Insere; se ainda assim colidir por corrida, o índice único do banco rejeita e a API traduz para `409`.
+3. `pg_advisory_xact_lock(hashtext(barberId))` — serializa todas as tentativas de agendar com esse barbeiro, para a checagem de sobreposição abaixo não ter condição de corrida entre duas requisições concorrentes.
+4. `barberId` existe e tem `role = 'barber'`.
+5. `serviceId` pertence a esse `barberId` (evita agendar um serviço de outro barbeiro).
+6. Serviço está `active`.
+7. Horário dentro do expediente (`estaDentroDoHorario`, permissivo se o barbeiro não configurou `openingHours`).
+8. Não sobrepõe outro agendamento ativo do mesmo barbeiro (considera a duração do serviço).
+9. Insere; se ainda assim colidir por corrida, o índice único do banco rejeita e a API traduz para `409`.
+
+Cliente cancela o próprio agendamento em `PATCH /api/bookings/[id]` (`{ status: 'cancelled' }`) — só permitido enquanto o status é `requested`/`confirmed` e faltar pelo menos 1h para o horário marcado; fora disso, `409`.
 
 ### Financeiro
 
-- Toda transição **para** `completed` gera um `financialEntry` (`type: income`) vinculado ao `bookingId`.
-- Toda transição de `completed` **para** `cancelled` remove esse `financialEntry` (estorno).
-- Lançamentos manuais (`POST /api/finance/entries`) e preços de serviço exigem valores inteiros `> 0`.
+- Toda transição **para** `completed` gera um `financialEntry` (`type: income`) vinculado ao `bookingId` — via `Financeiro.registrarReceita` (`lib/domain/financeiro.ts`).
+- Toda transição de `completed` **para** `cancelled` remove esse `financialEntry` (estorno) — via `Financeiro.estornar`.
+- Lançamentos manuais (`POST /api/finance/entries`, agora com UI na aba "Financeiro" do painel do barbeiro) e preços de serviço exigem valores inteiros `> 0`.
+- A aba "Financeiro" filtra por período (hoje / 7 dias / mês) e mostra receita, despesa e saldo do período selecionado.
 
 ---
 
@@ -151,15 +173,19 @@ Dentro de uma transação, nesta ordem:
 | Rota | Método | Quem pode chamar | O que faz |
 |---|---|---|---|
 | `/api/auth/[...all]` | GET/POST | público | catch-all do better-auth (sign-up, sign-in, sessão, logout) |
+| `/api/bookings` | GET | qualquer usuário autenticado | cliente lista os próprios agendamentos (barbeiro, serviço, preço, status) |
 | `/api/bookings` | POST | qualquer usuário autenticado | cliente cria um agendamento (validações da seção acima) |
+| `/api/bookings/[id]` | PATCH | dono do agendamento (cliente) | cancela o próprio agendamento, respeitando as regras |
 | `/api/barber/bookings` | GET | `role=barber` (dono) | lista os agendamentos do barbeiro logado |
 | `/api/barber/bookings/[id]` | PATCH | `role=barber` (dono do agendamento) | muda o status (máquina de estados) |
 | `/api/barber/services` | GET/POST | `role=barber` (dono) | lista/cria serviços do barbeiro logado |
 | `/api/barber/services/[id]` | PATCH | `role=barber` (dono) | edita nome/preço/duração/ativo de um serviço |
-| `/api/barbers/search` | GET | público | busca barbeiros por `city`/`neighborhood`/`onlyOnline` |
+| `/api/barbers/search` | GET | público | busca por `q` (nome/cidade/bairro, ILIKE) + `onlyOnline`; ordena por distância se `lat`/`lng` forem informados |
 | `/api/barbers/[id]/services` | GET | público | lista serviços **ativos** de um barbeiro (para o cliente agendar) |
+| `/api/barbers/[id]/availability` | GET | público | horários realmente livres de um barbeiro num dia, para um `serviceId` |
 | `/api/finance/entries` | GET/POST | `role=barber` (dono) | lista/cria lançamentos financeiros |
-| `/api/profile` | GET/PATCH | qualquer autenticado | lê/edita o próprio perfil |
+| `/api/profile` | GET/PATCH | qualquer autenticado | lê/edita o próprio perfil (inclui `openingHours`, geocodifica endereço do barbeiro) |
+| `/api/profile/avatar` | POST | qualquer autenticado | upload da foto de perfil (multipart, Vercel Blob) |
 | `/api/profile/preferences` | PATCH | qualquer autenticado | tema, notificações, status online |
 
 ---
@@ -195,66 +221,63 @@ Dentro de uma transação, nesta ordem:
    ```
    Sempre revise o SQL gerado antes de aplicar em produção.
 
+6. **Rodar os testes (não precisa de banco — só lógica de domínio pura):**
+   ```
+   pnpm test           # vitest run
+   ```
+
+7. **Upload de foto de perfil (opcional):** crie um Blob Store no painel da Vercel (Storage → Blob) e preencha `BLOB_READ_WRITE_TOKEN` no `.env.local`. Sem isso, o resto do app funciona normalmente — só o upload de avatar falha com um erro tratado na UI.
+
 ---
 
 ## Estado atual do projeto
 
-O pedido original tinha 9 itens, divididos em duas fases (ordem definida pelo usuário: agendamento/segurança/financeiro primeiro, depois tempo real/localização/upload/POO).
+O pedido original tinha 10 itens (ver ordem de desenvolvimento definida pelo usuário), em três rodadas de trabalho.
 
-### ✅ Fase 1 — concluída e verificada (type-check + `next build` passando)
+### ✅ Fase 1 — segurança, agendamento e financeiro básicos
 
 1. **Agendamentos**: dupla marcação, serviço-pertence-ao-barbeiro, serviço ativo e horário de funcionamento — todos validados em `POST /api/bookings`.
 2. **Status**: sequência correta via `lib/domain/agendamento.ts`, transições inválidas bloqueadas.
 3. **Financeiro**: sem valores negativos/zero, receita gerada uma única vez por agendamento, estorno automático ao desfazer um `completed`.
 4. **Segurança**: `lib/authz.ts` separa autenticação de autorização; toda rota de barbeiro checa `role`; validações de entrada reforçadas em perfil/serviços/financeiro.
-8. **Dado de demonstração**: `demoProfile` removido de `lib/contracts.ts`; `app/page.tsx` depende só da sessão real e esconde a aba "Minha barbearia" para quem não é barbeiro.
+5. **Dado de demonstração**: `demoProfile` removido de `lib/contracts.ts`; `app/page.tsx` depende só da sessão real e esconde a aba "Minha barbearia" para quem não é barbeiro.
 
-> **Revalidado nesta sessão** (dependências instaladas via `corepack pnpm install`): `tsc --noEmit` e `next build` passam sem erros, e o build gera todas as 14 rotas esperadas. Os únicos avisos no build vêm do Better Auth (`BETTER_AUTH_SECRET`/`BETTER_AUTH_URL` ausentes), que são esperados sem um `.env.local` — não são erros de código.
+### ✅ Fase 2 — plataforma de agendamento real (concluída e verificada: `tsc --noEmit` + `next build` + `pnpm test` passando)
 
-### ⏳ Não testado ponta a ponta
+1. **Horários reais**: `GET /api/barbers/[id]/availability` calcula horários livres a partir do expediente do barbeiro + duração do serviço + agendamentos existentes; nunca deixa passar do fechamento nem sobrepor. Editor de horário de funcionamento em `SettingsPanel` (era o loose end da Fase 1 — a coluna existia mas nada gravava). `BookingModal` usa slots reais em vez de horários fixos.
+2. **Proteção contra conflito**: `pg_advisory_xact_lock` por barbeiro dentro da transação de `POST /api/bookings` — fecha a corrida em que dois clientes marcam horários que se sobrepõem (mas não são idênticos) ao mesmo tempo.
+3. **Fila em tempo real**: `BarberHome` repete a busca de agendamentos/financeiro a cada 5s (hook `usePolling`), pausando quando a aba fica invisível. Agenda do dia e fila ordenadas cronologicamente.
+4. **Área do cliente**: aba "Meus agendamentos" (`GET /api/bookings`, `PATCH /api/bookings/[id]`) com próximos agendamentos + histórico, e cancelamento respeitando as regras (só `requested`/`confirmed`, com ≥1h de antecedência).
+5. **Painel do barbeiro**: edição inline de preço/duração de um serviço já criado; aba "Financeiro" com filtro por período e lançamento manual de receita/despesa.
+6. **Upload real de foto**: `POST /api/profile/avatar` (Vercel Blob) — `SettingsPanel` faz upload do arquivo antes de persistir o perfil, em vez de gravar a `blob:` URL temporária.
+7. **Busca/localização**: busca textual (`q`, ILIKE) por nome/cidade/bairro direto no banco; geocodificação automática (Nominatim) do endereço do barbeiro; ordenação por distância real via `navigator.geolocation` + Haversine.
+8. **Financeiro completo**: aba dedicada com receita/despesa/saldo por período (hoje/7 dias/mês) e lançamento manual — antes só existia a API, sem nenhuma tela.
+9. **POO**: `Usuario` (abstrata) → `Cliente`/`Barbeiro` com `permissoes()` polimórfico (usado de verdade em `toProfile()`); `Servico` encapsula preço/duração com setters que validam; `Financeiro` isola registrar/estornar receita, reaproveitando `Agendamento`.
+10. **Testes**: `vitest` + 27 testes cobrindo a máquina de estados do agendamento, `business-hours`, `Servico`, `Usuario`/`Cliente`/`Barbeiro` e a geração de horários disponíveis.
 
-Este ambiente de desenvolvimento **não tinha `DATABASE_URL` configurado** durante a Fase 1 — a verificação foi só por tipo/build + revisão lógica (reconfirmada nesta sessão). Antes de considerar a Fase 1 100% fechada, alguém precisa:
-- Configurar um Postgres real (`.env.local`), rodar `pnpm db:migrate`.
-- Testar manualmente: tentar marcar dois agendamentos no mesmo horário (deve dar 409), tentar pular um status (deve dar 409), cancelar um agendamento `completed` e confirmar que a receita some do financeiro, e confirmar que um usuário `client` autenticado toma 403 ao chamar rotas `/api/barber/*` diretamente.
+> Build confirmado com `./node_modules/.bin/tsc --noEmit`, `./node_modules/.bin/next build` (14 rotas de API + páginas) e `./node_modules/.bin/vitest run` (27/27) — dependências instaladas via `corepack pnpm install`.
+
+### ⏳ Não testado ponta a ponta (precisa de infraestrutura externa)
+
+Este ambiente de desenvolvimento **não tem `DATABASE_URL` configurado** — toda a verificação acima foi por tipo/build/testes unitários + revisão lógica, não testes de integração contra um Postgres real. Antes de considerar o projeto pronto para produção, alguém com acesso a essa infraestrutura precisa:
+- Configurar um Postgres real (`.env.local`), rodar `pnpm db:migrate` (inclui a migração `0003` com `latitude`/`longitude`).
+- Testar manualmente o que já valia da Fase 1 (dois agendamentos no mesmo horário → 409, pular um status → 409, cancelar `completed` → receita some do financeiro, `client` chamando `/api/barber/*` → 403).
+- Testar os fluxos novos: `BookingModal` mostrando só horários realmente livres (inclusive não deixar escolher um horário que ultrapasse o fechamento); duas abas tentando marcar horários sobrepostos ao mesmo tempo (a segunda deve falhar com 409, não criar um agendamento sobreposto); cliente cancelando um agendamento com <1h de antecedência (deve dar 409); configurar `BLOB_READ_WRITE_TOKEN` e testar upload de foto de verdade; conceder permissão de localização no navegador e conferir se a distância mostrada bate com a geocodificação do Nominatim.
 
 ---
 
 ## Pendências / O que falta
 
-### Loose end da Fase 1 (recomendado fechar antes ou junto da Fase 2)
+Não há nenhum item pendente dos 10 originais — os itens acima estão implementados e verificados por tipo/build/testes. O que resta é infraestrutural, listado na seção anterior, e melhorias que não foram pedidas mas valeriam a pena numa próxima rodada:
 
-- **Falta UI para o barbeiro configurar `openingHours`.** A coluna existe no banco e a validação (`lib/business-hours.ts`) existe na API, mas hoje **nenhuma tela grava esse campo** — então na prática a checagem de horário de funcionamento fica sempre permissiva (nunca bloqueia nada). Precisa de um editor simples (dia da semana × abre/fecha/ativo) em `components/navalha/settings-panel.tsx`, salvando via `PATCH /api/profile` (o endpoint precisa ganhar suporte a esse campo — hoje só aceita `name/phone/avatarUrl/city/neighborhood`).
-
-### Fase 2 (ordem sugerida pelo usuário: depois da Fase 1)
-
-Decisões já validadas com o usuário nesta rodada de planejamento — **não precisa perguntar de novo**, só implementar:
-
-1. **Tempo real → Polling curto.** `BarberHome` em `app/page.tsx` deve re-buscar `bookings`/`finances` a cada poucos segundos (ex.: 5s), pausando quando a aba fica invisível (`document.visibilitychange`). Sem infraestrutura nova.
-
-2. **Localização real → Geocodificação automática (Nominatim) + geolocalização do navegador.**
-   - Adicionar `latitude`/`longitude` (nullable) em `user`.
-   - `lib/geocode.ts` (novo): ao salvar endereço do barbeiro em `PATCH /api/profile`, geocodificar via `https://nominatim.openstreetmap.org/search` (definir um `User-Agent` descritivo, respeitar rate limit — é um serviço gratuito sem chave). Se falhar, deixar lat/lng nulos (barbeiro só não entra na ordenação por distância).
-   - `app/api/barbers/search/route.ts`: aceitar `lat`/`lng` (da geolocalização do navegador do cliente) e `q` (busca textual por nome/cidade/bairro direto no banco, com `ILIKE`); ordenar por distância (Haversine em JS, dataset pequeno, sem precisar de PostGIS) quando houver coordenadas.
-   - `ClientHome` (`app/page.tsx`): usar `navigator.geolocation.getCurrentPosition` com fallback gracioso se o usuário negar permissão; mostrar distância real em vez do texto fixo atual.
-
-3. **Upload de foto real → Vercel Blob.**
-   - Adicionar dependência `@vercel/blob`.
-   - Nova rota `app/api/profile/avatar/route.ts` (POST multipart/form-data): `requireUser`, validar tipo (`image/jpeg|png|webp`) e tamanho (≤5MB), `put()` no Blob com chave única, atualizar `user.avatarUrl` com a URL permanente.
-   - `components/navalha/settings-panel.tsx`: hoje `chooseAvatar` grava a `blob:` URL do preview **diretamente no perfil** (`save()` manda `avatarUrl: preview` pro backend) — isso é o bug a corrigir. Precisa guardar o `File` bruto no estado, usar `URL.createObjectURL` só para o preview visual, e no `save()` fazer upload real do arquivo (se houver um novo) antes de persistir a URL definitiva.
-   - Requer que o usuário crie um Blob Store no painel da Vercel e configure `BLOB_READ_WRITE_TOKEN` (adicionar ao `.env.example`).
-
-4. **POO completa → `lib/domain/`.**
-   - `Usuario` (classe abstrata) → `Cliente` e `Barbeiro` (herança).
-   - `Servico` — encapsula preço/duração, nunca permite valores inválidos (setters validam).
-   - `Financeiro` — `registrarReceita(agendamento)` / `estornar(agendamentoId)` / `saldoDoMes()`, reaproveitando a `Agendamento` já criada na Fase 1.
-   - Polimorfismo: um método abstrato tipo `permissoes(): string[]` sobrescrito de forma diferente em `Cliente` (`['agendar']`) e `Barbeiro` (`['gerenciar_servicos', 'gerenciar_financeiro', ...]`).
-   - Refatorar as rotas para delegar a essas classes em vez de regra solta em route handlers (a `Agendamento` da Fase 1 já está pronta para ser reaproveitada aqui).
+- **Tempo real via WebSocket/SSE em vez de polling.** O polling de 5s (item 3) é simples e funciona, mas não escala bem com muitos barbeiros simultâneos nem é instantâneo. Trocar por Server-Sent Events ou um provedor de realtime (ex.: Supabase Realtime, Pusher) é a evolução natural, mas é uma mudança de infraestrutura maior — não implementada porque o usuário já havia validado "polling curto" como solução da Fase 2.
+- **Testes de integração contra Postgres real** (o que a seção "Não testado ponta a ponta" pede) — os 27 testes atuais cobrem só lógica de domínio pura (sem banco), por não haver `DATABASE_URL` neste ambiente.
+- **`Financeiro.saldoDoMes()`** e um `saldoDoMes` dedicado na classe não foram criados — o cálculo de saldo por período (item 8) hoje é feito direto em `app/page.tsx` a partir da lista de `FinancialEntry` já carregada (dataset pequeno de uma barbearia só; não valeria a complexidade de mover para uma rota de agregação no servidor ainda).
 
 ---
 
 ## Notas para quem (ou qual IA) retomar o projeto
 
-- Este README é a fonte de verdade sobre o que existe e o que falta — **atualize-o** conforme cada item da seção de pendências for implementado (mova de "Fase 2" para "Fase 1 concluída" ou remova o loose end).
-- Antes de propor uma abordagem para os itens de Fase 2, **as decisões de arquitetura já foram validadas com o usuário** (ver acima) — não é necessário perguntar de novo qual storage/tempo real/geolocalização usar, a menos que o usuário peça para reconsiderar.
-- Sempre rodar `./node_modules/.bin/tsc --noEmit` e `./node_modules/.bin/next build` antes de reportar qualquer mudança como concluída.
+- Este README é a fonte de verdade sobre o que existe e o que falta — **atualize-o** conforme novas mudanças forem implementadas.
+- Sempre rodar `./node_modules/.bin/tsc --noEmit`, `./node_modules/.bin/next build` e `./node_modules/.bin/vitest run` antes de reportar qualquer mudança como concluída.
 - Lembrar do aviso no topo deste arquivo: este Next.js tem breaking changes vs. o conhecimento de treino de qualquer LLM — conferir `node_modules/next/dist/docs/` antes de usar uma API que "parece familiar".
