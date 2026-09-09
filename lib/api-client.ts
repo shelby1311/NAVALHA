@@ -3,7 +3,9 @@ import { API_ENDPOINTS } from './contracts'
 
 async function request<T>(url: string, init?: RequestInit): Promise<ApiResult<T>> {
   try {
-    const response = await fetch(url, { ...init, headers: { 'Content-Type': 'application/json', ...init?.headers } })
+    // FormData define seu próprio Content-Type (com boundary) — não sobrescrever.
+    const headers = init?.body instanceof FormData ? init.headers : { 'Content-Type': 'application/json', ...init?.headers }
+    const response = await fetch(url, { ...init, headers })
     if (!response.ok) {
       const body = await response.json().catch(() => null)
       const message = body && (typeof body.error === 'string' ? body.error : typeof body.message === 'string' ? body.message : null)
@@ -17,6 +19,7 @@ async function request<T>(url: string, init?: RequestInit): Promise<ApiResult<T>
 
 export const apiClient = {
   updateProfile: (payload: UpdateProfilePayload) => request<UserProfile>(API_ENDPOINTS.profile, { method: 'PATCH', body: JSON.stringify(payload) }),
+  uploadAvatar: (file: File) => { const form = new FormData(); form.set('file', file); return request<UserProfile>(`${API_ENDPOINTS.profile}/avatar`, { method: 'POST', body: form }) },
   updatePreferences: (payload: Pick<UserProfile, 'theme' | 'notifications' | 'isOnline'>) => request<UserProfile>(API_ENDPOINTS.preferences, { method: 'PATCH', body: JSON.stringify(payload) }),
   searchBarbers: (filters: BarberSearchFilters) => {
     const params = new URLSearchParams({ city: filters.city, ...(filters.neighborhood ? { neighborhood: filters.neighborhood } : {}), onlyOnline: String(filters.onlyOnline) })

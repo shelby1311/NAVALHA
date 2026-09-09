@@ -14,9 +14,12 @@ const DAY_ORDER = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const
 export function SettingsPanel({ profile, open, onClose, onSaved }: Props) {
   const [draft, setDraft] = useState(profile)
   const [preview, setPreview] = useState(profile.avatarUrl)
+  const [avatarFile, setAvatarFile] = useState<File | null>(null)
   const [saved, setSaved] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => { if (open) { setDraft(profile); setPreview(profile.avatarUrl); setSaved(false) } }, [open, profile])
+  useEffect(() => { if (open) { setDraft(profile); setPreview(profile.avatarUrl); setAvatarFile(null); setSaved(false); setError(null) } }, [open, profile])
   if (!open) return null
 
   function update<K extends keyof UserProfile>(key: K, value: UserProfile[K]) { setDraft((current) => ({ ...current, [key]: value })) }
@@ -30,11 +33,22 @@ export function SettingsPanel({ profile, open, onClose, onSaved }: Props) {
   function chooseAvatar(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]
     if (!file) return
+    setAvatarFile(file)
     setPreview(URL.createObjectURL(file))
   }
   async function save() {
-    const result = await apiClient.updateProfile({ ...draft, avatarUrl: preview })
-    const next = result.data ?? { ...draft, avatarUrl: preview }
+    setSaving(true)
+    setError(null)
+    let avatarUrl = draft.avatarUrl
+    if (avatarFile) {
+      const uploaded = await apiClient.uploadAvatar(avatarFile)
+      if (uploaded.error) { setSaving(false); setError(uploaded.error); return }
+      avatarUrl = uploaded.data?.avatarUrl ?? avatarUrl
+    }
+    const result = await apiClient.updateProfile({ ...draft, avatarUrl })
+    setSaving(false)
+    if (result.error) { setError(result.error); return }
+    const next = result.data ?? { ...draft, avatarUrl }
     onSaved(next); setSaved(true); setTimeout(onClose, 700)
   }
 
@@ -66,7 +80,8 @@ export function SettingsPanel({ profile, open, onClose, onSaved }: Props) {
       )}
 
       <div className="mt-7 grid gap-3 border-t border-border pt-6 sm:grid-cols-3"><button onClick={() => update('isOnline', !draft.isOnline)} className={`flex items-center gap-3 rounded-2xl border p-4 text-left ${draft.isOnline ? 'border-primary/50 bg-primary/10' : 'border-border'}`}><Globe2 size={18} className="text-primary" /><span className="flex-1"><b className="block text-sm">Disponível online</b><small className="text-xs text-muted-foreground">Aparecer na busca</small></span><span className={`size-2 rounded-full ${draft.isOnline ? 'bg-emerald-400' : 'bg-muted-foreground'}`} /></button><button onClick={() => update('notifications', !draft.notifications)} className="flex items-center gap-3 rounded-2xl border border-border p-4 text-left"><Bell size={18} className="text-primary" /><span className="flex-1"><b className="block text-sm">Notificações</b><small className="text-xs text-muted-foreground">Novos agendamentos</small></span><span className={`size-5 rounded-md border ${draft.notifications ? 'border-primary bg-primary text-primary-foreground' : 'border-input'}`}>{draft.notifications && <Check size={14} />}</span></button><label className="grid gap-2 rounded-2xl border border-border p-4 text-sm">Tema<select value={draft.theme} onChange={(e) => update('theme', e.target.value as UserProfile['theme'])} className="bg-transparent text-xs outline-none"><option value="dark">Escuro</option><option value="light">Claro</option><option value="system">Sistema</option></select></label></div>
-      <div className="mt-7 flex flex-col-reverse gap-3 border-t border-border pt-5 sm:flex-row sm:justify-end"><button onClick={onClose} className="rounded-xl border border-border px-5 py-3 text-sm font-medium">Cancelar</button><button onClick={save} className="flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground">{saved ? <><Check size={16} /> Salvo</> : 'Salvar alterações'}</button></div>
+      {error && <p className="mt-4 rounded-xl bg-destructive/10 px-4 py-3 text-sm text-destructive">{error}</p>}
+      <div className="mt-7 flex flex-col-reverse gap-3 border-t border-border pt-5 sm:flex-row sm:justify-end"><button onClick={onClose} className="rounded-xl border border-border px-5 py-3 text-sm font-medium">Cancelar</button><button onClick={save} disabled={saving} className="flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground disabled:opacity-50">{saved ? <><Check size={16} /> Salvo</> : saving ? 'Salvando...' : 'Salvar alterações'}</button></div>
     </div>
   </div>
 }
