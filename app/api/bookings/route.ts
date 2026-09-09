@@ -1,9 +1,10 @@
 import { and, desc, eq, inArray, ne, sql } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { isResponse, requireUser } from '@/lib/authz'
-import { estaDentroDoHorario } from '@/lib/business-hours'
+import { estaDentroDoHorario, terminaDentroDoHorario } from '@/lib/business-hours'
 import { db } from '@/lib/db'
-import { barberService, booking, user } from '@/lib/schema'
+import { financialEntry, barberService, booking, user } from '@/lib/schema'
+import { dataNoFusoDoNegocio, inicioDoDiaNoFuso } from '@/lib/timezone'
 
 const UNIQUE_VIOLATION = '23505'
 
@@ -15,12 +16,17 @@ export async function GET(request: Request) {
 
   const serviceIds = [...new Set(bookings.map((b) => b.serviceId))]
   const barberIds = [...new Set(bookings.map((b) => b.barberId))]
+  const bookingIds = bookings.map((b) => b.id)
 
   const services = serviceIds.length ? await db.select({ id: barberService.id, name: barberService.name, priceCents: barberService.priceCents }).from(barberService).where(inArray(barberService.id, serviceIds)) : []
   const barbers = barberIds.length ? await db.select({ id: user.id, name: user.name, businessName: user.businessName }).from(user).where(inArray(user.id, barberIds)) : []
+  // Para agendamentos concluídos, o valor de fato cobrado fica congelado em
+  // financial_entry — o preço do serviço pode ter mudado desde então.
+  const entries = bookingIds.length ? await db.select({ bookingId: financialEntry.bookingId, amountCents: financialEntry.amountCents }).from(financialEntry).where(inArray(financialEntry.bookingId, bookingIds)) : []
 
   const serviceById = new Map(services.map((s) => [s.id, s]))
   const barberById = new Map(barbers.map((b) => [b.id, b]))
+  const chargedAmountByBookingId = new Map(entries.map((e) => [e.bookingId, e.amountCents]))
 
   return NextResponse.json(
     bookings.map((b) => {
@@ -30,7 +36,7 @@ export async function GET(request: Request) {
         id: b.id,
         barberName: barber?.businessName || barber?.name || 'Barbearia',
         serviceName: service?.name ?? 'Serviço',
-        priceCents: service?.priceCents ?? 0,
+        priceCents: chargedAmountByBookingId.get(b.id) ?? service?.priceCents ?? 0,
         scheduledAt: b.scheduledAt.toISOString(),
         status: b.status,
       }
@@ -72,9 +78,18 @@ export async function POST(request: Request) {
       if (!estaDentroDoHorario(barber.openingHours, scheduledAt)) {
         return { error: 'Horário fora do funcionamento da barbearia.', status: 400 } as const
       }
+      // `estaDentroDoHorario` só garante que o INÍCIO cai dentro do expediente — sem
+      // esta checagem, um serviço longo poderia começar minutos antes do fechamento
+      // e terminar bem depois dele. A UI de disponibilidade já não oferece esses
+      // horários, mas a validação tem que existir aqui também (nunca confiar só no
+      // frontend / na tela que gerou a requisição).
+      if (!terminaDentroDoHorario(barber.openingHours, scheduledAt, service.durationMinutes)) {
+        return { error: 'Este serviço não cabe antes do fechamento.', status: 400 } as const
+      }
 
       const end = new Date(scheduledAt.getTime() + service.durationMinutes * 60_000)
-      const dayStart = new Date(scheduledAt.getFullYear(), scheduledAt.getMonth(), scheduledAt.getDate())
+      const { year, month, day } = dataNoFusoDoNegocio(scheduledAt)
+      const dayStart = inicioDoDiaNoFuso(year, month, day)
       const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60_000)
 
       const sameDayBookings = await tx

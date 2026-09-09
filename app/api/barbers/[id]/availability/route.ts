@@ -4,6 +4,7 @@ import { DEFAULT_OPENING_HOURS, janelaDoDia } from '@/lib/business-hours'
 import { gerarHorariosDisponiveis } from '@/lib/domain/disponibilidade'
 import { db } from '@/lib/db'
 import { barberService, booking, user } from '@/lib/schema'
+import { inicioDoDiaNoFuso } from '@/lib/timezone'
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
 
@@ -18,8 +19,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   }
 
   const [year, month, dayOfMonth] = dateParam.split('-').map(Number)
-  const day = new Date(year, month - 1, dayOfMonth)
-  if (Number.isNaN(day.getTime())) return NextResponse.json({ error: 'Data inválida.' }, { status: 400 })
+  // Meia-noite do dia pedido no fuso do negócio (Brasil), não no fuso do processo Node.
+  const dayStart = inicioDoDiaNoFuso(year, month, dayOfMonth)
+  if (Number.isNaN(dayStart.getTime())) return NextResponse.json({ error: 'Data inválida.' }, { status: 400 })
 
   const [barber] = await db.select().from(user).where(and(eq(user.id, barberId), eq(user.role, 'barber')))
   if (!barber) return NextResponse.json({ error: 'Barbeiro não encontrado.' }, { status: 404 })
@@ -27,10 +29,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const [service] = await db.select().from(barberService).where(and(eq(barberService.id, serviceId), eq(barberService.barberId, barberId)))
   if (!service || !service.active) return NextResponse.json({ error: 'Serviço indisponível.' }, { status: 404 })
 
-  const janela = janelaDoDia(barber.openingHours ?? DEFAULT_OPENING_HOURS, day)
+  const janela = janelaDoDia(barber.openingHours ?? DEFAULT_OPENING_HOURS, dayStart)
   if (!janela) return NextResponse.json({ slots: [] })
 
-  const dayStart = new Date(day.getFullYear(), day.getMonth(), day.getDate())
   const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60_000)
 
   const dayBookings = await db
@@ -49,7 +50,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     })
 
   const free = gerarHorariosDisponiveis({
-    day,
+    diaInicioUtc: dayStart,
     openingMinutes: janela.open,
     closingMinutes: janela.close,
     durationMinutes: service.durationMinutes,

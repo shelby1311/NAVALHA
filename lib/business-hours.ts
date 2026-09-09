@@ -1,3 +1,5 @@
+import { dataNoFusoDoNegocio, inicioDoDiaNoFuso, partesNoFusoDoNegocio } from './timezone'
+
 export type OpeningHours = Record<string, { open: string; close: string; active: boolean }>
 
 export const WEEKDAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const
@@ -23,9 +25,9 @@ export function parseTimeToMinutes(value: string): number | null {
   return hours * 60 + minutes
 }
 
-/** Janela de funcionamento (em minutos desde a meia-noite) do dia de `date`, ou `null` se fechado. */
+/** Janela de funcionamento (em minutos desde a meia-noite, no fuso do negócio) do dia de `date`, ou `null` se fechado. */
 export function janelaDoDia(openingHours: OpeningHours | null | undefined, date: Date): { open: number; close: number } | null {
-  const day = WEEKDAY_KEYS[date.getDay()]
+  const day = WEEKDAY_KEYS[partesNoFusoDoNegocio(date).weekday]
   const config = openingHours?.[day]
   if (!config || !config.active) return null
 
@@ -43,7 +45,8 @@ export function janelaDoDia(openingHours: OpeningHours | null | undefined, date:
 export function estaDentroDoHorario(openingHours: OpeningHours | null | undefined, date: Date): boolean {
   if (!openingHours) return true
 
-  const day = WEEKDAY_KEYS[date.getDay()]
+  const { weekday, hour, minute } = partesNoFusoDoNegocio(date)
+  const day = WEEKDAY_KEYS[weekday]
   const config = openingHours[day]
   if (!config) return false
   if (!config.active) return false
@@ -52,6 +55,25 @@ export function estaDentroDoHorario(openingHours: OpeningHours | null | undefine
   const close = parseTimeToMinutes(config.close)
   if (open == null || close == null) return true
 
-  const minutesOfDay = date.getHours() * 60 + date.getMinutes()
+  const minutesOfDay = hour * 60 + minute
   return minutesOfDay >= open && minutesOfDay < close
+}
+
+/**
+ * Verifica se um serviço de `durationMinutes` iniciado em `scheduledAt` termina
+ * antes do fechamento do expediente daquele dia. `estaDentroDoHorario` só garante
+ * que o INÍCIO cai dentro do expediente — sem esta checagem, um serviço longo
+ * poderia começar minutos antes de fechar e terminar bem depois.
+ * Sem `openingHours` configurado para o dia, é permissiva (mesma filosofia de
+ * `estaDentroDoHorario`).
+ */
+export function terminaDentroDoHorario(openingHours: OpeningHours | null | undefined, scheduledAt: Date, durationMinutes: number): boolean {
+  const janela = janelaDoDia(openingHours, scheduledAt)
+  if (!janela) return true
+
+  const { year, month, day } = dataNoFusoDoNegocio(scheduledAt)
+  const dayStart = inicioDoDiaNoFuso(year, month, day)
+  const end = new Date(scheduledAt.getTime() + durationMinutes * 60_000)
+  const endMinutesFromDayStart = (end.getTime() - dayStart.getTime()) / 60_000
+  return endMinutesFromDayStart <= janela.close
 }
