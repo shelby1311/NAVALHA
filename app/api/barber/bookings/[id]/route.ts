@@ -3,8 +3,9 @@ import { NextResponse } from 'next/server'
 import { isResponse, requireRole } from '@/lib/authz'
 import type { BookingStatus } from '@/lib/contracts'
 import { Agendamento, TransicaoInvalidaError } from '@/lib/domain/agendamento'
+import { Financeiro } from '@/lib/domain/financeiro'
 import { db } from '@/lib/db'
-import { barberService, booking, financialEntry } from '@/lib/schema'
+import { barberService, booking } from '@/lib/schema'
 
 const VALID_STATUS = ['requested', 'confirmed', 'waiting', 'in_service', 'completed', 'cancelled'] as const
 const UNIQUE_VIOLATION = '23505'
@@ -37,21 +38,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
       if (atual.geraReceita(newStatus)) {
         const [service] = await tx.select().from(barberService).where(eq(barberService.id, existing.serviceId))
-        if (service && service.priceCents > 0) {
-          await tx.insert(financialEntry).values({
-            id: crypto.randomUUID(),
-            barberId: existing.barberId,
-            bookingId: existing.id,
-            type: 'income',
-            category: 'Serviço',
-            description: service.name,
-            amountCents: service.priceCents,
-            entryDate: new Date(),
-            isRecurring: false,
-          })
+        if (service) {
+          await Financeiro.registrarReceita(tx, { barberId: existing.barberId, bookingId: existing.id, category: 'Serviço', description: service.name, amountCents: service.priceCents })
         }
       } else if (atual.estornaReceita(newStatus)) {
-        await tx.delete(financialEntry).where(eq(financialEntry.bookingId, existing.id))
+        await Financeiro.estornar(tx, existing.id)
       }
 
       const [row] = await tx.update(booking).set({ status: newStatus }).where(eq(booking.id, id)).returning()

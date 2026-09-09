@@ -14,9 +14,10 @@ export type UserProfile = {
   notifications: boolean
   isOnline: boolean
   openingHours: Record<string, { open: string; close: string; active: boolean }> | null
+  permissoes: string[]
 }
 
-export type UpdateProfilePayload = Partial<Omit<UserProfile, 'id' | 'role' | 'email'>>
+export type UpdateProfilePayload = Partial<Omit<UserProfile, 'id' | 'role' | 'email' | 'permissoes'>>
 
 export type BarberService = {
   id: string
@@ -142,6 +143,6 @@ export function centsToMoney(value: number) {
 }
 
 export function profilePayload(profile: UserProfile): UpdateProfilePayload {
-  const { id: _id, role: _role, email: _email, ...payload } = profile
+  const { id: _id, role: _role, email: _email, permissoes: _permissoes, ...payload } = profile
   return payload
 }

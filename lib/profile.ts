@@ -1,3 +1,4 @@
+import { criarUsuario } from './domain/usuario'
 import type { UserProfile } from './contracts'
 
 // Formato mínimo de usuário aceito pelo `toProfile` (cobre tanto o usuário
@@ -33,5 +34,6 @@ export function toProfile(user: ProfileUser): UserProfile {
     notifications: user.notifications ?? true,
     isOnline: user.isOnline ?? false,
     openingHours: user.openingHours ?? null,
+    permissoes: criarUsuario(user).permissoes(),
   }
 }
