@@ -282,6 +282,8 @@ function BarberHome({ onSettings, profile }: { onSettings: () => void; profile: 
   const [price, setPrice] = useState('')
   const [duration, setDuration] = useState('')
   const [updating, setUpdating] = useState<string | null>(null)
+  const [submittingService, setSubmittingService] = useState(false)
+  const [submittingEntry, setSubmittingEntry] = useState(false)
 
   const load = useCallback(() => {
     apiClient.listServices().then((r) => r.data && setServices(r.data))
@@ -303,10 +305,13 @@ function BarberHome({ onSettings, profile }: { onSettings: () => void; profile: 
 
   async function addService(event: React.FormEvent) {
     event.preventDefault()
+    if (submittingService) return
     const priceCents = Math.round(Number(price.replace(',', '.')) * 100)
     const durationMinutes = Number(duration)
     if (!name.trim() || Number.isNaN(priceCents) || Number.isNaN(durationMinutes)) return
+    setSubmittingService(true)
     const result = await apiClient.createService({ name: name.trim(), priceCents, durationMinutes })
+    setSubmittingService(false)
     if (result.data) { setServices((s) => [...s, result.data as BarberService]); setName(''); setPrice(''); setDuration('') }
   }
 
@@ -359,9 +364,12 @@ function BarberHome({ onSettings, profile }: { onSettings: () => void; profile: 
 
   async function addFinanceEntry(event: React.FormEvent) {
     event.preventDefault()
+    if (submittingEntry) return
     const amountCents = Math.round(Number(entryAmount.replace(',', '.')) * 100)
     if (!entryCategory.trim() || Number.isNaN(amountCents) || amountCents <= 0) return
+    setSubmittingEntry(true)
     const result = await apiClient.createFinanceEntry({ type: entryType, category: entryCategory.trim(), description: entryDescription.trim(), amountCents })
+    setSubmittingEntry(false)
     if (result.data) { setFinances((f) => [result.data as FinancialEntry, ...f]); setEntryCategory(''); setEntryDescription(''); setEntryAmount('') }
   }
 
@@ -488,7 +496,7 @@ function BarberHome({ onSettings, profile }: { onSettings: () => void; profile: 
                 <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nome do serviço" aria-label="Nome do serviço" className="rounded-lg border border-input bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring" />
                 <input value={price} onChange={(e) => setPrice(e.target.value)} placeholder="Preço (R$)" inputMode="decimal" aria-label="Preço" className="rounded-lg border border-input bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring" />
                 <input value={duration} onChange={(e) => setDuration(e.target.value)} placeholder="Minutos" inputMode="numeric" aria-label="Duração" className="rounded-lg border border-input bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring" />
-                <button type="submit" className="flex items-center justify-center gap-1.5 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground"><Plus size={16} />Adicionar</button>
+                <button type="submit" disabled={submittingService} className="flex items-center justify-center gap-1.5 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-50"><Plus size={16} />{submittingService ? 'Adicionando...' : 'Adicionar'}</button>
               </form>
 
               <div className="mt-6 divide-y divide-border">
@@ -549,7 +557,7 @@ function BarberHome({ onSettings, profile }: { onSettings: () => void; profile: 
                 <input value={entryCategory} onChange={(e) => setEntryCategory(e.target.value)} placeholder="Categoria (ex.: Aluguel)" aria-label="Categoria" className="rounded-lg border border-input bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring" />
                 <input value={entryDescription} onChange={(e) => setEntryDescription(e.target.value)} placeholder="Descrição (opcional)" aria-label="Descrição" className="rounded-lg border border-input bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring" />
                 <input value={entryAmount} onChange={(e) => setEntryAmount(e.target.value)} placeholder="Valor (R$)" inputMode="decimal" aria-label="Valor" className="rounded-lg border border-input bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring" />
-                <button type="submit" className="flex items-center justify-center gap-1.5 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground"><Plus size={16} />Lançar</button>
+                <button type="submit" disabled={submittingEntry} className="flex items-center justify-center gap-1.5 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-50"><Plus size={16} />{submittingEntry ? 'Lançando...' : 'Lançar'}</button>
               </form>
 
               <div className="mt-6 divide-y divide-border">

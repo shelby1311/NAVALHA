@@ -1,14 +1,17 @@
 const NOMINATIM_URL = 'https://nominatim.openstreetmap.org/search'
 const EARTH_RADIUS_KM = 6371
+const GEOCODE_TIMEOUT_MS = 5000
 
-/** Geocodifica "bairro, cidade" via Nominatim (OpenStreetMap). Retorna `null` em qualquer falha. */
+/** Geocodifica "bairro, cidade" via Nominatim (OpenStreetMap). Retorna `null` em qualquer falha (inclusive timeout). */
 export async function geocodeAddress(city: string, neighborhood: string): Promise<{ latitude: number; longitude: number } | null> {
   const query = [neighborhood, city, 'Brasil'].filter(Boolean).join(', ')
   if (!query.trim()) return null
 
   try {
     const url = `${NOMINATIM_URL}?${new URLSearchParams({ q: query, format: 'json', limit: '1' })}`
-    const response = await fetch(url, { headers: { 'User-Agent': 'navalha-app (contato: sallesn91@gmail.com)' } })
+    // Sem timeout, um Nominatim lento/travado prenderia o PATCH /api/profile
+    // inteiro até o limite da plataforma (ex.: função serverless).
+    const response = await fetch(url, { headers: { 'User-Agent': 'navalha-app (contato: sallesn91@gmail.com)' }, signal: AbortSignal.timeout(GEOCODE_TIMEOUT_MS) })
     if (!response.ok) return null
 
     const results = (await response.json()) as Array<{ lat: string; lon: string }>

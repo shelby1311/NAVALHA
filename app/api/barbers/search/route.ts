@@ -10,6 +10,12 @@ function parseCoordinate(value: string | null): number | null {
   return Number.isFinite(parsed) ? parsed : null
 }
 
+// Escapa metacaracteres do LIKE/ILIKE (%, _, \) para que sejam tratados como texto
+// literal — sem isso, uma busca por "100%" ou "a_b" combinaria qualquer coisa.
+function escapeLikePattern(value: string): string {
+  return value.replace(/[\\%_]/g, (char) => `\\${char}`)
+}
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const q = searchParams.get('q')?.trim()
@@ -20,7 +26,7 @@ export async function GET(request: Request) {
   const conditions = [eq(user.role, 'barber')]
   if (onlyOnline) conditions.push(eq(user.isOnline, true))
   if (q) {
-    const pattern = `%${q}%`
+    const pattern = `%${escapeLikePattern(q)}%`
     conditions.push(or(ilike(user.name, pattern), ilike(user.businessName, pattern), ilike(user.city, pattern), ilike(user.neighborhood, pattern))!)
   }
 
