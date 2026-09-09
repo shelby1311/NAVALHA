@@ -4,7 +4,7 @@ Marketplace de agendamento entre **clientes** e **barbeiros**: o cliente encontr
 
 Este README serve dois propósitos:
 1. Documentar o projeto (stack, arquitetura, modelo de dados, regras de negócio, rotas de API) para qualquer pessoa (ou IA) que abrir o repositório do zero.
-2. Registrar **o que já foi corrigido** e **o que ainda falta** (seção [Pendências](#pendências--o-que-falta)), para retomar o trabalho numa próxima sessão sem perder contexto.
+2. Registrar **o que já foi implementado**, **o que tem teste automatizado** e **o que ainda depende de infraestrutura real** (seção [Estado atual do projeto](#estado-atual-do-projeto) e [Auditoria técnica](#auditoria-técnica--o-que-foi-encontrado-e-corrigido)), para retomar o trabalho numa próxima sessão sem perder contexto.
 
 > ⚠️ **Leia isto antes de mexer no código:** este projeto usa uma versão do Next.js com breaking changes relevantes em relação ao que qualquer IA/desenvolvedor "sabe de cor" (treino). Antes de codificar, leia o guia relevante em `node_modules/next/dist/docs/` (rode `pnpm install` primeiro se a pasta não existir). Isso está documentado em `AGENTS.md`/`CLAUDE.md` na raiz do repo — **siga essas instruções sempre**.
 
@@ -32,7 +32,8 @@ app/
   cadastro/page.tsx            # criação de conta (escolhe papel client/barbeiro)
   entrar/page.tsx              # login
   api/
-    auth/[...all]/route.ts     # catch-all do better-auth (sign-up, sign-in, sessão...)
+    auth/[...all]/route.ts     # catch-all do better-auth (sign-in, sessão, logout...)
+    auth/signup/route.ts       # POST — wrapper sobre o sign-up do better-auth (ver seção Autenticação)
     bookings/route.ts               # GET — cliente lista os próprios agendamentos · POST — cria um agendamento
     bookings/[id]/route.ts          # PATCH — cliente cancela o próprio agendamento (regras no corpo do arquivo)
     barber/bookings/route.ts        # GET  — barbeiro lista os próprios agendamentos
@@ -58,12 +59,14 @@ lib/
   auth.ts                      # configuração do better-auth (campos extras de usuário, etc.)
   auth-api.ts                  # client-side: chama os endpoints REST do better-auth
   authz.ts                     # requireUser / requireRole — autenticação separada de autorização
-  business-hours.ts            # janela de funcionamento do barbeiro (janelaDoDia/estaDentroDoHorario)
+  business-hours.ts            # janela de funcionamento do barbeiro (janelaDoDia/estaDentroDoHorario/terminaDentroDoHorario)
+  timezone.ts                  # fuso fixo do negócio (America/Sao_Paulo) — independente do fuso do processo Node
   geocode.ts                   # geocodeAddress() (Nominatim) + haversineKm() para busca por distância
   contracts.ts                 # tipos compartilhados front/back + helpers (ex.: centsToMoney)
   api-client.ts                # client-side: wrapper de fetch para as rotas /api/*
   profile.ts                   # toProfile() — normaliza a linha do banco para UserProfile
   business-hours.test.ts
+  timezone.test.ts
   domain/
     agendamento.ts              # classe Agendamento — máquina de estados do booking
     agendamento.test.ts
@@ -79,6 +82,13 @@ drizzle/
   0000_*.sql .. 0003_*.sql     # migrações, nessa ordem
   meta/                                 # snapshots internos do drizzle-kit (não editar à mão)
 
+tests/
+  integration/
+    booking-concurrency.test.ts # roda contra Postgres real (ver seção Testes de integração)
+
+docker-compose.yml              # Postgres descartável (porta 5433) só para tests/integration
+vitest.config.ts                # testes unitários (pnpm test) — exclui tests/integration
+vitest.integration.config.ts    # testes de integração (pnpm test:integration)
 drizzle.config.ts              # aponta lib/schema.ts -> drizzle/, lê DATABASE_URL
 
 pnpm-workspace.yaml            # allowBuilds (esbuild habilitado) + minimumReleaseAgeExclude (@next/*, next)
@@ -112,6 +122,14 @@ pnpm-workspace.yaml            # allowBuilds (esbuild habilitado) + minimumRelea
 - **`requireUser(request)`** — só confirma *quem* é o usuário (sessão válida via `better-auth`). Retorna `{ user }` ou uma `NextResponse` 401.
 - **`requireRole(request, role)`** — usa `requireUser` por baixo e além disso verifica `user.role === role`, retornando 403 se não bater.
 
+### Cadastro (`app/api/auth/signup/route.ts`) e por que `role` não é `input: true`
+
+`role` em `lib/auth.ts` é **`input: false`** — de propósito. O better-auth expõe automaticamente `POST /api/auth/update-user` (dentro do catch-all `/api/auth/[...all]`), que aceita qualquer `additionalField` com `input: true` vindo direto do corpo da requisição, sem diferenciar "criar conta" de "atualizar depois". Com `role: { input: true }` (como estava antes de uma auditoria de segurança), **qualquer cliente autenticado podia virar barbeiro** com um simples `POST /api/auth/update-user { "role": "barber" }`, ganhando acesso a `/api/barber/*` e `/api/finance/*` sem passar por nenhuma validação da aplicação.
+
+Como `role` não pode mais ser setado via better-auth (nem no sign-up, nem depois), o cadastro passou a ter uma rota própria: `app/api/auth/signup/route.ts` chama `auth.api.signUpEmail()` (API server-side do better-auth, criando a conta com `role` default `'client'`) e, só então, grava `role`/`businessName`/`city`/`neighborhood` com um `UPDATE` direto no banco — fora do alcance do gate de campos do better-auth. `lib/auth-api.ts` (client-side) chama essa rota nova em vez de `/api/auth/sign-up/email` diretamente; `cadastro/page.tsx` não mudou.
+
+**Se um dia precisar adicionar outro `additionalField` sensível** (que não deveria ser auto-editável pelo usuário via `update-user`), aplique o mesmo padrão: `input: false` em `lib/auth.ts` + escrita direta no banco na rota que legitimamente precisa setá-lo.
+
 Toda rota exclusiva de barbeiro (`/api/barber/**`, `/api/finance/entries`) usa `requireRole(request, 'barber')`. Rotas de autoatendimento (`/api/profile*`) usam só `requireUser`, pois qualquer papel pode editar o próprio perfil. Rotas de descoberta pública (`/api/barbers/search`, `/api/barbers/[id]/services`) não exigem sessão.
 
 Padrão de uso em uma rota:
@@ -140,22 +158,29 @@ A classe `Agendamento` é a **única fonte de verdade** dessa sequência — usa
 
 No front-end (`app/page.tsx`, função `actionsFor`), os botões de ação do barbeiro seguem exatamente essa sequência: Confirmar → Colocar na fila → Iniciar → Concluir, com Cancelar disponível em qualquer estado não-terminal.
 
+### Fuso horário (`lib/timezone.ts`)
+
+Todo cálculo de "que dia da semana"/"que hora" um agendamento cai usa `America/Sao_Paulo` **fixo** (`BUSINESS_UTC_OFFSET_MINUTES = -180`), nunca o fuso do processo Node que roda o servidor. Isso importa de verdade: em produção (Vercel, por exemplo, roda funções serverless em UTC por padrão), interpretar "09:00–19:00" configurado pelo barbeiro usando `date.getHours()`/`date.getDay()` locais leria isso como 09:00–19:00 **UTC**, ou seja, 06:00–16:00 em Brasília — horários errados por 3h em toda a aplicação. `partesNoFusoDoNegocio`/`dataNoFusoDoNegocio`/`inicioDoDiaNoFuso` decompõem/reconstroem instantes UTC nesse fuso de forma determinística, independente de onde o servidor roda.
+
+> O Brasil não observa mais horário de verão desde 2019 (lei nacional), então o offset fixo de -180min é exato hoje. Se isso mudar, é o único lugar do código a ajustar.
+
 ### Horários disponíveis (`GET /api/barbers/[id]/availability`)
 
-Recebe `serviceId` + `date` (`YYYY-MM-DD`) e devolve só horários **realmente livres**: parte da janela de funcionamento do dia (`janelaDoDia`, com `DEFAULT_OPENING_HOURS` para barbeiros que ainda não configuraram nada), gera uma grade de 15 em 15 min (`gerarHorariosDisponiveis`, em `lib/domain/disponibilidade.ts`), descarta horários no passado, descarta qualquer início cujo fim (considerando a duração do serviço) passe do fechamento, e descarta qualquer sobreposição com agendamentos ativos do barbeiro naquele dia. `BookingModal` usa essa rota (com um seletor de dia, 14 dias à frente) em vez de horários fixos.
+Recebe `serviceId` + `date` (`YYYY-MM-DD`) e devolve só horários **realmente livres**: parte da janela de funcionamento do dia (`janelaDoDia`, com `DEFAULT_OPENING_HOURS` para barbeiros que ainda não configuraram nada), gera uma grade de 15 em 15 min a partir da meia-noite **no fuso do negócio** (`gerarHorariosDisponiveis`, em `lib/domain/disponibilidade.ts`), descarta horários no passado, descarta qualquer início cujo fim (considerando a duração do serviço) passe do fechamento, e descarta qualquer sobreposição com agendamentos ativos do barbeiro naquele dia. `BookingModal` usa essa rota (com um seletor de dia, 14 dias à frente) em vez de horários fixos.
 
 ### Criação de agendamento (`POST /api/bookings`)
 
 Dentro de uma transação, nesta ordem:
 1. Usuário autenticado (`requireUser`).
 2. Payload válido e `scheduledAt` no futuro.
-3. `pg_advisory_xact_lock(hashtext(barberId))` — serializa todas as tentativas de agendar com esse barbeiro, para a checagem de sobreposição abaixo não ter condição de corrida entre duas requisições concorrentes.
+3. `pg_advisory_xact_lock(hashtext(barberId))` — serializa todas as tentativas de agendar com esse barbeiro, para a checagem de sobreposição abaixo não ter condição de corrida entre duas requisições concorrentes. **Só o índice único de horário exato não bastava** (dois horários que só se *sobrepõem*, sem serem idênticos, passavam pela checagem de leitura antes de qualquer um inserir).
 4. `barberId` existe e tem `role = 'barber'`.
 5. `serviceId` pertence a esse `barberId` (evita agendar um serviço de outro barbeiro).
 6. Serviço está `active`.
-7. Horário dentro do expediente (`estaDentroDoHorario`, permissivo se o barbeiro não configurou `openingHours`).
-8. Não sobrepõe outro agendamento ativo do mesmo barbeiro (considera a duração do serviço).
-9. Insere; se ainda assim colidir por corrida, o índice único do banco rejeita e a API traduz para `409`.
+7. Início dentro do expediente (`estaDentroDoHorario`, permissivo se o barbeiro não configurou `openingHours`).
+8. **Fim** dentro do expediente (`terminaDentroDoHorario`) — checagem separada da anterior: sem ela, um serviço longo podia começar minutos antes do fechamento e terminar bem depois, aceito pela API (a tela de disponibilidade já escondia esses horários do cliente, mas a API em si não revalidava o fim, só o início).
+9. Não sobrepõe outro agendamento ativo do mesmo barbeiro (considera a duração do serviço).
+10. Insere; se ainda assim colidir por corrida, o índice único do banco rejeita e a API traduz para `409`.
 
 Cliente cancela o próprio agendamento em `PATCH /api/bookings/[id]` (`{ status: 'cancelled' }`) — só permitido enquanto o status é `requested`/`confirmed` e faltar pelo menos 1h para o horário marcado; fora disso, `409`.
 
@@ -165,6 +190,7 @@ Cliente cancela o próprio agendamento em `PATCH /api/bookings/[id]` (`{ status:
 - Toda transição de `completed` **para** `cancelled` remove esse `financialEntry` (estorno) — via `Financeiro.estornar`.
 - Lançamentos manuais (`POST /api/finance/entries`, agora com UI na aba "Financeiro" do painel do barbeiro) e preços de serviço exigem valores inteiros `> 0`.
 - A aba "Financeiro" filtra por período (hoje / 7 dias / mês) e mostra receita, despesa e saldo do período selecionado.
+- `GET /api/bookings` (histórico do cliente) mostra `financialEntry.amountCents` — o valor **de fato cobrado**, congelado no momento da conclusão — para agendamentos que já geraram receita, e só cai para o preço atual do serviço quando ainda não há lançamento (agendamento não concluído). Sem isso, um reajuste de preço faria o histórico do cliente mostrar retroativamente um valor que ele nunca pagou.
 
 ---
 
@@ -172,7 +198,8 @@ Cliente cancela o próprio agendamento em `PATCH /api/bookings/[id]` (`{ status:
 
 | Rota | Método | Quem pode chamar | O que faz |
 |---|---|---|---|
-| `/api/auth/[...all]` | GET/POST | público | catch-all do better-auth (sign-up, sign-in, sessão, logout) |
+| `/api/auth/[...all]` | GET/POST | público | catch-all do better-auth (sign-in, sessão, logout) |
+| `/api/auth/signup` | POST | público | cria a conta (wrapper sobre o sign-up do better-auth) e grava `role`/dados de barbeiro |
 | `/api/bookings` | GET | qualquer usuário autenticado | cliente lista os próprios agendamentos (barbeiro, serviço, preço, status) |
 | `/api/bookings` | POST | qualquer usuário autenticado | cliente cria um agendamento (validações da seção acima) |
 | `/api/bookings/[id]` | PATCH | dono do agendamento (cliente) | cancela o próprio agendamento, respeitando as regras |
@@ -228,51 +255,135 @@ Cliente cancela o próprio agendamento em `PATCH /api/bookings/[id]` (`{ status:
 
 7. **Upload de foto de perfil (opcional):** crie um Blob Store no painel da Vercel (Storage → Blob) e preencha `BLOB_READ_WRITE_TOKEN` no `.env.local`. Sem isso, o resto do app funciona normalmente — só o upload de avatar falha com um erro tratado na UI.
 
+8. **Testes de integração (opcional, contra Postgres real — ver [seção dedicada](#testes-de-integração-contra-postgresql-real)):**
+   ```
+   docker compose up -d
+   DATABASE_URL=postgresql://navalha:navalha@localhost:5433/navalha_test pnpm db:migrate
+   DATABASE_URL=postgresql://navalha:navalha@localhost:5433/navalha_test pnpm test:integration
+   ```
+
 ---
 
 ## Estado atual do projeto
 
-O pedido original tinha 10 itens (ver ordem de desenvolvimento definida pelo usuário), em três rodadas de trabalho.
+O pedido original tinha 10 itens de produto (agendamento/segurança/financeiro, depois tempo real/localização/upload/POO/testes) e passou por uma auditoria técnica completa depois de implementado, focada em segurança, integridade de dados e produção. Esta seção reflete o estado real — só marca algo como "implementado" o que existe em código, e só como "testado" o que tem teste automatizado rodando.
 
-### ✅ Fase 1 — segurança, agendamento e financeiro básicos
+### ✅ Implementado
 
-1. **Agendamentos**: dupla marcação, serviço-pertence-ao-barbeiro, serviço ativo e horário de funcionamento — todos validados em `POST /api/bookings`.
-2. **Status**: sequência correta via `lib/domain/agendamento.ts`, transições inválidas bloqueadas.
-3. **Financeiro**: sem valores negativos/zero, receita gerada uma única vez por agendamento, estorno automático ao desfazer um `completed`.
-4. **Segurança**: `lib/authz.ts` separa autenticação de autorização; toda rota de barbeiro checa `role`; validações de entrada reforçadas em perfil/serviços/financeiro.
-5. **Dado de demonstração**: `demoProfile` removido de `lib/contracts.ts`; `app/page.tsx` depende só da sessão real e esconde a aba "Minha barbearia" para quem não é barbeiro.
+**Produto (10 itens originais):**
+1. Horários reais disponíveis (`GET /api/barbers/[id]/availability`) + editor de expediente do barbeiro.
+2. Proteção contra conflito de horário (`pg_advisory_xact_lock` por barbeiro).
+3. Fila/agenda em tempo real via polling de 5s (`usePolling`), pausando com a aba invisível.
+4. Área "Meus agendamentos" do cliente (próximos + histórico + cancelamento com regra de antecedência).
+5. Painel do barbeiro: agenda ordenada, edição inline de preço/duração de serviço.
+6. Upload real de foto de perfil (Vercel Blob).
+7. Busca por nome/cidade/bairro (ILIKE) + geocodificação (Nominatim) + distância real (GPS + Haversine).
+8. Financeiro completo: receita/despesa/saldo por período, lançamento manual.
+9. POO: `Usuario`/`Cliente`/`Barbeiro`, `Servico`, `Financeiro`, `Agendamento` — usadas de verdade pelas rotas, não só declaradas.
+10. Testes automatizados (`vitest`).
 
-### ✅ Fase 2 — plataforma de agendamento real (concluída e verificada: `tsc --noEmit` + `next build` + `pnpm test` passando)
+**Correções da auditoria técnica (ver [seção dedicada](#auditoria-técnica--o-que-foi-encontrado-e-corrigido) com problema/impacto/correção de cada uma):**
+- Fechada uma escalação de privilégio (`role` via `/api/auth/update-user` do better-auth).
+- Todo o cálculo de expediente/disponibilidade passou a usar o fuso do negócio (`America/Sao_Paulo`) em vez do fuso do processo Node.
+- `POST /api/bookings` passou a validar também o **fim** do serviço contra o expediente (só o início era checado).
+- Histórico do cliente mostra o preço realmente cobrado (`financial_entry`), não o preço atual do serviço.
+- Timeout no Nominatim, escape de wildcards ILIKE, proteção contra duplo clique em dois formulários do painel do barbeiro.
 
-1. **Horários reais**: `GET /api/barbers/[id]/availability` calcula horários livres a partir do expediente do barbeiro + duração do serviço + agendamentos existentes; nunca deixa passar do fechamento nem sobrepor. Editor de horário de funcionamento em `SettingsPanel` (era o loose end da Fase 1 — a coluna existia mas nada gravava). `BookingModal` usa slots reais em vez de horários fixos.
-2. **Proteção contra conflito**: `pg_advisory_xact_lock` por barbeiro dentro da transação de `POST /api/bookings` — fecha a corrida em que dois clientes marcam horários que se sobrepõem (mas não são idênticos) ao mesmo tempo.
-3. **Fila em tempo real**: `BarberHome` repete a busca de agendamentos/financeiro a cada 5s (hook `usePolling`), pausando quando a aba fica invisível. Agenda do dia e fila ordenadas cronologicamente.
-4. **Área do cliente**: aba "Meus agendamentos" (`GET /api/bookings`, `PATCH /api/bookings/[id]`) com próximos agendamentos + histórico, e cancelamento respeitando as regras (só `requested`/`confirmed`, com ≥1h de antecedência).
-5. **Painel do barbeiro**: edição inline de preço/duração de um serviço já criado; aba "Financeiro" com filtro por período e lançamento manual de receita/despesa.
-6. **Upload real de foto**: `POST /api/profile/avatar` (Vercel Blob) — `SettingsPanel` faz upload do arquivo antes de persistir o perfil, em vez de gravar a `blob:` URL temporária.
-7. **Busca/localização**: busca textual (`q`, ILIKE) por nome/cidade/bairro direto no banco; geocodificação automática (Nominatim) do endereço do barbeiro; ordenação por distância real via `navigator.geolocation` + Haversine.
-8. **Financeiro completo**: aba dedicada com receita/despesa/saldo por período (hoje/7 dias/mês) e lançamento manual — antes só existia a API, sem nenhuma tela.
-9. **POO**: `Usuario` (abstrata) → `Cliente`/`Barbeiro` com `permissoes()` polimórfico (usado de verdade em `toProfile()`); `Servico` encapsula preço/duração com setters que validam; `Financeiro` isola registrar/estornar receita, reaproveitando `Agendamento`.
-10. **Testes**: `vitest` + 27 testes cobrindo a máquina de estados do agendamento, `business-hours`, `Servico`, `Usuario`/`Cliente`/`Barbeiro` e a geração de horários disponíveis.
+### ✅ Testado (automatizado)
 
-> Build confirmado com `./node_modules/.bin/tsc --noEmit`, `./node_modules/.bin/next build` (14 rotas de API + páginas) e `./node_modules/.bin/vitest run` (27/27) — dependências instaladas via `corepack pnpm install`.
+- **36 testes unitários** (`pnpm test`, sem banco): máquina de estados do agendamento, `business-hours` (incluindo fuso horário e `terminaDentroDoHorario`), `lib/timezone.ts`, `Servico`, `Usuario`/`Cliente`/`Barbeiro`, geração de horários disponíveis.
+- **2 testes de integração** (`tests/integration/booking-concurrency.test.ts`, contra Postgres real): duas requisições concorrentes para horários sobrepostos → só uma cria o agendamento; cancelar libera o horário para outro cliente. **Escritos e revisados, mas nunca executados neste ambiente** (sem docker/`DATABASE_URL` disponível aqui) — ver checklist de produção abaixo.
 
-### ⏳ Não testado ponta a ponta (precisa de infraestrutura externa)
+### ⏳ Não testado (depende de infraestrutura externa)
 
-Este ambiente de desenvolvimento **não tem `DATABASE_URL` configurado** — toda a verificação acima foi por tipo/build/testes unitários + revisão lógica, não testes de integração contra um Postgres real. Antes de considerar o projeto pronto para produção, alguém com acesso a essa infraestrutura precisa:
-- Configurar um Postgres real (`.env.local`), rodar `pnpm db:migrate` (inclui a migração `0003` com `latitude`/`longitude`).
-- Testar manualmente o que já valia da Fase 1 (dois agendamentos no mesmo horário → 409, pular um status → 409, cancelar `completed` → receita some do financeiro, `client` chamando `/api/barber/*` → 403).
-- Testar os fluxos novos: `BookingModal` mostrando só horários realmente livres (inclusive não deixar escolher um horário que ultrapasse o fechamento); duas abas tentando marcar horários sobrepostos ao mesmo tempo (a segunda deve falhar com 409, não criar um agendamento sobreposto); cliente cancelando um agendamento com <1h de antecedência (deve dar 409); configurar `BLOB_READ_WRITE_TOKEN` e testar upload de foto de verdade; conceder permissão de localização no navegador e conferir se a distância mostrada bate com a geocodificação do Nominatim.
+Nada disto foi validado neste ambiente por falta de acesso à infraestrutura real:
+- **Postgres real**: migrações (`pnpm db:migrate`), os 2 testes de integração escritos, e o restante da matriz de cenários da auditoria (lista completa na seção de auditoria, item "Agendamentos").
+- **Vercel Blob**: upload de avatar de verdade (precisa de `BLOB_READ_WRITE_TOKEN`).
+- **Nominatim**: geocodificação de endereço real (o timeout/tratamento de erro foi revisado no código, mas nunca chamou a API de verdade).
+- **Navegador real**: permissão de GPS negada/concedida, responsividade mobile, teclado/leitor de tela.
+- **better-auth em produção**: `BETTER_AUTH_SECRET`/`BETTER_AUTH_URL` reais, e o fluxo completo de sign-up → sessão → primeira chamada autenticada com um `BETTER_AUTH_SECRET` que não seja o default de desenvolvimento.
+
+### 🚧 Antes do primeiro cliente real
+
+Ver o [checklist de produção](#checklist-de-produção) completo. Os pontos que mais importam agora: rodar os testes de integração contra um Postgres real (valida a proteção de concorrência, que é o único mecanismo que nenhum teste unitário consegue provar), testar manualmente a lista de cenários de agendamento da auditoria, e configurar `BETTER_AUTH_SECRET`/`BLOB_READ_WRITE_TOKEN` reais antes de qualquer deploy.
 
 ---
 
-## Pendências / O que falta
+## Auditoria técnica — o que foi encontrado e corrigido
 
-Não há nenhum item pendente dos 10 originais — os itens acima estão implementados e verificados por tipo/build/testes. O que resta é infraestrutural, listado na seção anterior, e melhorias que não foram pedidas mas valeriam a pena numa próxima rodada:
+Auditoria completa da arquitetura (rotas, domínio, banco, autorização, UX, performance) depois dos 10 itens de produto implementados. Cada problema abaixo foi corrigido, testado (quando possível sem infraestrutura externa) e commitado separadamente — ver `git log` para o diff exato de cada um.
 
-- **Tempo real via WebSocket/SSE em vez de polling.** O polling de 5s (item 3) é simples e funciona, mas não escala bem com muitos barbeiros simultâneos nem é instantâneo. Trocar por Server-Sent Events ou um provedor de realtime (ex.: Supabase Realtime, Pusher) é a evolução natural, mas é uma mudança de infraestrutura maior — não implementada porque o usuário já havia validado "polling curto" como solução da Fase 2.
-- **Testes de integração contra Postgres real** (o que a seção "Não testado ponta a ponta" pede) — os 27 testes atuais cobrem só lógica de domínio pura (sem banco), por não haver `DATABASE_URL` neste ambiente.
-- **`Financeiro.saldoDoMes()`** e um `saldoDoMes` dedicado na classe não foram criados — o cálculo de saldo por período (item 8) hoje é feito direto em `app/page.tsx` a partir da lista de `FinancialEntry` já carregada (dataset pequeno de uma barbearia só; não valeria a complexidade de mover para uma rota de agregação no servidor ainda).
+| Severidade | Problema | Impacto | Correção |
+|---|---|---|---|
+| 🔴 Crítico | `role` tinha `input: true` em `lib/auth.ts` — o better-auth expõe `POST /api/auth/update-user` aceitando qualquer campo `input:true`, sem diferenciar criação de atualização | Qualquer `client` autenticado virava `barber` com um POST direto, acessando `/api/barber/*` e `/api/finance/*` sem nenhuma validação nossa | `role` agora é `input:false`; nova rota `app/api/auth/signup` cria a conta e grava `role` com update direto no banco, fora do alcance do better-auth |
+| 🟠 Alto | Expediente/disponibilidade calculados com `date.getDay()`/`getHours()` — dependem do fuso do **processo Node**, não do fuso real da barbearia | Em produção (runtime em UTC), "09:00–19:00" seria lido como 06:00–16:00 em Brasília — horários errados por 3h | `lib/timezone.ts` fixa `America/Sao_Paulo` e decompõe/reconstrói instantes nesse fuso, independente de onde o servidor roda |
+| 🟠 Alto | `POST /api/bookings` validava só o **início** do agendamento contra o expediente | Um serviço longo podia começar minutos antes do fechamento e terminar bem depois — aceito pela API mesmo a UI não oferecendo esse horário | Nova `terminaDentroDoHorario()` valida o fim também, na criação do agendamento |
+| 🟡 Médio | Histórico do cliente (`GET /api/bookings`) sempre mostrava o preço **atual** do serviço | Um reajuste de preço fazia o histórico mostrar retroativamente um valor que o cliente nunca pagou | Usa `financial_entry.amountCents` (congelado na conclusão) quando existe, com fallback pro preço atual só para agendamentos ainda não concluídos |
+| 🟢 Baixo | `geocodeAddress()` sem timeout | Nominatim lento/travado prenderia `PATCH /api/profile` até o limite da plataforma | `AbortSignal.timeout(5000)` |
+| 🟢 Baixo | Busca ILIKE não escapava `%`/`_`/`\` do texto digitado | Não é SQL injection (ILIKE já é parametrizado), mas "100%" ou "a_b" combinavam qualquer coisa | `escapeLikePattern()` antes de montar o padrão |
+| 🟢 Baixo | `addService`/`addFinanceEntry` sem proteção contra duplo clique | Em rede lenta, dois cliques podiam criar serviço/lançamento duplicado | Estado `submitting` + botão desabilitado, mesmo padrão já usado em `BookingModal` |
+
+**Verificado e sem problema** (itens do escopo da auditoria que foram checados e estavam corretos):
+- **Timestamps no Postgres**: `lib/schema.ts` usa `timestamp` sem timezone, e o mapper do Drizzle (`mapToDriverValue`/`mapFromDriverValue`) já normaliza para UTC na escrita e na leitura — não depende do fuso da máquina rodando o Postgres nem do processo Node. **Não mexer nisso** (não trocar por `timestamptz` sem entender essa normalização primeiro).
+- **IDOR**: barbeiro A não acessa/edita serviço, agendamento ou financeiro de barbeiro B; cliente A não cancela agendamento de cliente B — todas as rotas escopam por `auth.user.id` no `WHERE`, confirmado lendo cada rota.
+- **Migrations vs. schema**: `drizzle-kit generate` não detectou nenhuma diferença entre `lib/schema.ts` e as migrations existentes — um Postgres novo, rodando as 4 migrations em ordem, fica idêntico ao schema atual.
+- **Geocoding**: só roda quando `city`/`neighborhood` realmente mudam (não a cada `PATCH /api/profile`).
+- **Cliente também pode criar agendamento como comprador em `POST /api/bookings`** mesmo sendo `role=barber` — decisão de produto, não bug (um barbeiro pode legitimamente ser cliente de outro).
+
+---
+
+## Testes de integração contra PostgreSQL real
+
+Os 36 testes de `pnpm test` cobrem só lógica de domínio pura (sem banco). Duas coisas — a proteção de concorrência (`pg_advisory_xact_lock`) e as constraints do banco (índices únicos, FKs, checks) — só podem ser provadas de verdade contra um Postgres real, daí `tests/integration/`.
+
+```
+docker compose up -d                                                                  # sobe um Postgres descartável na porta 5433
+DATABASE_URL=postgresql://navalha:navalha@localhost:5433/navalha_test pnpm db:migrate  # aplica as 4 migrations
+DATABASE_URL=postgresql://navalha:navalha@localhost:5433/navalha_test pnpm test:integration
+```
+
+Sem `DATABASE_URL` definido, `pnpm test:integration` **pula** os testes (não falha) — e eles nunca entram em `pnpm test`/CI por padrão. **Isto não foi executado neste ambiente** (sem docker disponível) — o arquivo foi escrito e revisado, mas precisa rodar contra Postgres real antes de virar prova de que a proteção de concorrência funciona.
+
+Cenários cobertos hoje: duas requisições concorrentes para horários sobrepostos (só uma deve criar o agendamento) e cancelamento liberando o horário. Cenários da auditoria que ainda **não** têm teste de integração automatizado (testar manualmente até alguém escrever):
+- Dois clientes tentando exatamente o mesmo horário (índice único de banco).
+- Serviços com durações diferentes se sobrepondo parcialmente.
+- Agendamento confirmado bloqueando horário; cancelado liberando (parcialmente coberto).
+- Estorno de receita ao cancelar um `completed`, e que não duplica (índice único em `financial_entry.booking_id`).
+- `client` chamando `/api/barber/*` diretamente → 403.
+
+---
+
+## Checklist de produção
+
+Antes de considerar o Navalha pronto para os primeiros usuários reais:
+
+- [ ] PostgreSQL real configurado (`DATABASE_URL` de produção)
+- [ ] Migrations executadas (`pnpm db:migrate`)
+- [ ] Build funcionando (`pnpm build` / `next build`) — ✅ verificado neste ambiente
+- [ ] TypeScript funcionando (`pnpm exec tsc --noEmit`) — ✅ verificado neste ambiente
+- [ ] Testes unitários passando (`pnpm test`) — ✅ 43/43 neste ambiente
+- [ ] Testes de integração passando contra Postgres real (`pnpm test:integration`) — ⏳ escritos, não executados (sem infra aqui)
+- [ ] APIs testadas manualmente ponta a ponta (não só por tipo/lógica)
+- [ ] Autorização testada (matriz de IDOR da auditoria, manualmente contra sessões reais)
+- [ ] Agendamento testado (os 11 cenários da auditoria, manualmente ou via testes de integração adicionais)
+- [ ] Concorrência testada (rodar o teste de integração de verdade, considerar também um teste de carga simples)
+- [ ] Financeiro testado (receita/despesa/estorno/duplicidade, manualmente)
+- [ ] Upload de avatar testado com `BLOB_READ_WRITE_TOKEN` real
+- [ ] Geocoding testado com endereços reais (Nominatim)
+- [ ] GPS testado (permissão concedida e negada, em um navegador de verdade)
+- [ ] Mobile testado (responsividade, teclado virtual, toque)
+- [ ] Desktop testado
+- [ ] Variáveis de ambiente de produção configuradas (`BETTER_AUTH_SECRET` gerado de verdade, não o default de dev; `BETTER_AUTH_URL` = domínio real)
+- [ ] Secrets protegidos (nada de `.env.local`/tokens commitado — `.gitignore` já cobre isso, conferir antes do primeiro push)
+- [ ] Dados demo removidos ou claramente separados — ✅ já não existe `demoProfile` no código
+- [ ] Erros tratados de forma consistente (revisado nesta auditoria; sem um APM/Sentry configurado ainda)
+- [ ] Logs funcionando (hoje só `console`/logs padrão da Vercel — sem observabilidade estruturada)
+- [ ] Backup do banco definido (depende do provedor escolhido — Neon/Supabase/Vercel Postgres têm backup automático nos planos pagos; confirmar antes de ir ao ar)
+- [ ] Política de privacidade definida
+- [ ] Termos de uso definidos
+- [ ] Processo de suporte definido
+
+**Recomendação desta auditoria:** o código está em bom estado — a vulnerabilidade crítica encontrada foi corrigida, a lógica de agendamento/financeiro foi revisada e os bugs reais encontrados foram corrigidos, com 36 testes automatizados passando. **Mas o projeto não pode ser chamado de "pronto para produção" enquanto os itens marcados ⏳ acima não forem executados contra infraestrutura real** — em especial os testes de integração (a única prova de que a proteção de concorrência funciona de verdade) e um teste manual ponta a ponta com Postgres, Blob e Nominatim reais. Nada aqui é bloqueante de código; é validação que só existe rodando o sistema de verdade.
 
 ---
 
