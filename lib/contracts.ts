@@ -52,6 +52,15 @@ export type BookingWithDetails = {
   status: BookingStatus
 }
 
+export type MyBooking = {
+  id: string
+  barberName: string
+  serviceName: string
+  priceCents: number
+  scheduledAt: string
+  status: BookingStatus
+}
+
 export type BookingPayload = {
   barberId: string
   serviceId: string
@@ -114,6 +123,7 @@ export const API_ENDPOINTS = {
   services: '/api/barber/services',
   bookings: '/api/barber/bookings',
   createBooking: '/api/bookings',
+  myBookings: '/api/bookings',
 } as const
 
 export function centsToMoney(value: number) {

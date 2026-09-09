@@ -1,4 +1,4 @@
-import type { ApiResult, AvailabilityResponse, BarberSearchFilters, BarberService, Booking, BookingPayload, BookingStatus, BookingWithDetails, FinancialEntry, ServicePayload, UpdateProfilePayload, UserProfile } from './contracts'
+import type { ApiResult, AvailabilityResponse, BarberSearchFilters, BarberService, Booking, BookingPayload, BookingStatus, BookingWithDetails, FinancialEntry, MyBooking, ServicePayload, UpdateProfilePayload, UserProfile } from './contracts'
 import { API_ENDPOINTS } from './contracts'
 
 async function request<T>(url: string, init?: RequestInit): Promise<ApiResult<T>> {
@@ -31,4 +31,6 @@ export const apiClient = {
   listAvailability: (barberId: string, serviceId: string, date: string) => request<AvailabilityResponse>(`/api/barbers/${barberId}/availability?${new URLSearchParams({ serviceId, date })}`),
   createBooking: (payload: BookingPayload) => request<Booking>(API_ENDPOINTS.createBooking, { method: 'POST', body: JSON.stringify(payload) }),
   updateBookingStatus: (id: string, status: BookingStatus) => request<{ id: string; status: BookingStatus }>(`${API_ENDPOINTS.bookings}/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) }),
+  listMyBookings: () => request<MyBooking[]>(API_ENDPOINTS.myBookings),
+  cancelMyBooking: (id: string) => request<{ id: string; status: BookingStatus }>(`${API_ENDPOINTS.myBookings}/${id}`, { method: 'PATCH', body: JSON.stringify({ status: 'cancelled' }) }),
 }

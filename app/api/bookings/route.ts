@@ -1,4 +1,4 @@
-import { and, eq, ne } from 'drizzle-orm'
+import { and, desc, eq, inArray, ne, sql } from 'drizzle-orm'
 import { NextResponse } from 'next/server'
 import { isResponse, requireUser } from '@/lib/authz'
 import { estaDentroDoHorario } from '@/lib/business-hours'
@@ -6,6 +6,37 @@ import { db } from '@/lib/db'
 import { barberService, booking, user } from '@/lib/schema'
 
 const UNIQUE_VIOLATION = '23505'
+
+export async function GET(request: Request) {
+  const auth = await requireUser(request)
+  if (isResponse(auth)) return auth
+
+  const bookings = await db.select().from(booking).where(eq(booking.clientId, auth.user.id)).orderBy(desc(booking.scheduledAt))
+
+  const serviceIds = [...new Set(bookings.map((b) => b.serviceId))]
+  const barberIds = [...new Set(bookings.map((b) => b.barberId))]
+
+  const services = serviceIds.length ? await db.select({ id: barberService.id, name: barberService.name, priceCents: barberService.priceCents }).from(barberService).where(inArray(barberService.id, serviceIds)) : []
+  const barbers = barberIds.length ? await db.select({ id: user.id, name: user.name, businessName: user.businessName }).from(user).where(inArray(user.id, barberIds)) : []
+
+  const serviceById = new Map(services.map((s) => [s.id, s]))
+  const barberById = new Map(barbers.map((b) => [b.id, b]))
+
+  return NextResponse.json(
+    bookings.map((b) => {
+      const service = serviceById.get(b.serviceId)
+      const barber = barberById.get(b.barberId)
+      return {
+        id: b.id,
+        barberName: barber?.businessName || barber?.name || 'Barbearia',
+        serviceName: service?.name ?? 'Serviço',
+        priceCents: service?.priceCents ?? 0,
+        scheduledAt: b.scheduledAt.toISOString(),
+        status: b.status,
+      }
+    }),
+  )
+}
 
 export async function POST(request: Request) {
   const auth = await requireUser(request)
@@ -25,6 +56,12 @@ export async function POST(request: Request) {
 
   try {
     const result = await db.transaction(async (tx) => {
+      // Serializa todas as tentativas de agendar com este barbeiro: sem isso, duas
+      // requisições concorrentes poderiam ler "sem sobreposição" antes de qualquer
+      // uma inserir e ambas passariam (o índice único do banco só barra o mesmo
+      // `scheduledAt` exato, não horários que apenas se sobrepõem em duração).
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${barberId}))`)
+
       const [barber] = await tx.select().from(user).where(and(eq(user.id, barberId), eq(user.role, 'barber')))
       if (!barber) return { error: 'Barbeiro não encontrado.', status: 404 } as const
 

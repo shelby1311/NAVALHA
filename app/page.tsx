@@ -2,13 +2,14 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { CalendarDays, Check, ChevronRight, Clock3, DollarSign, MapPin, Menu, Plus, Scissors, Search, Settings2, Users, Wallet, type LucideIcon } from 'lucide-react'
+import { CalendarDays, Check, ChevronRight, Clock3, DollarSign, MapPin, Menu, Plus, Scissors, Search, Settings2, Users, Wallet, X, type LucideIcon } from 'lucide-react'
 import { BookingModal } from '@/components/navalha/booking-modal'
 import { SettingsPanel } from '@/components/navalha/settings-panel'
 import { apiClient } from '@/lib/api-client'
-import { centsToMoney, type BarberService, type BookingStatus, type BookingWithDetails, type UserProfile } from '@/lib/contracts'
+import { centsToMoney, type BarberService, type BookingStatus, type BookingWithDetails, type MyBooking, type UserProfile } from '@/lib/contracts'
 
 type ViewMode = 'client' | 'barber'
+const POLL_INTERVAL_MS = 5000
 type Barber = { id: string; name: string; place: string; online: boolean; avatar: string }
 
 function initials(name: string) {
@@ -63,6 +64,20 @@ function actionsFor(status: string): { label: string; to: BookingStatus }[] {
   }
 }
 
+/** Chama `load` de novo a cada `intervalMs`, pausando quando a aba fica invisível. */
+function usePolling(load: () => void, intervalMs: number) {
+  useEffect(() => {
+    let interval: ReturnType<typeof setInterval> | null = null
+    function start() { if (!interval) interval = setInterval(load, intervalMs) }
+    function stop() { if (interval) { clearInterval(interval); interval = null } }
+    function onVisibilityChange() { if (document.hidden) stop(); else { load(); start() } }
+    if (!document.hidden) start()
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    return () => { stop(); document.removeEventListener('visibilitychange', onVisibilityChange) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [load, intervalMs])
+}
+
 function Logo() {
   return (
     <div className="flex items-center gap-2.5 font-semibold tracking-tight">
@@ -72,7 +87,75 @@ function Logo() {
   )
 }
 
-function ClientHome() {
+function MyBookings() {
+  const [bookings, setBookings] = useState<MyBooking[]>([])
+  const [loading, setLoading] = useState(true)
+  const [cancelling, setCancelling] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  const load = useCallback(() => {
+    apiClient.listMyBookings().then((r) => { setLoading(false); if (r.data) setBookings(r.data) })
+  }, [])
+
+  useEffect(() => { load() }, [load])
+  usePolling(load, POLL_INTERVAL_MS)
+
+  async function cancel(id: string) {
+    setCancelling(id)
+    setError(null)
+    const result = await apiClient.cancelMyBooking(id)
+    setCancelling(null)
+    if (result.error) setError(result.error)
+    else load()
+  }
+
+  const upcoming = useMemo(() => bookings.filter((b) => b.status !== 'cancelled' && b.status !== 'completed').sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt)), [bookings])
+  const history = useMemo(() => bookings.filter((b) => b.status === 'cancelled' || b.status === 'completed'), [bookings])
+
+  if (loading) return <div className="rounded-2xl border border-dashed border-border p-10 text-center text-sm text-muted-foreground">Carregando agendamentos...</div>
+
+  return (
+    <div className="space-y-8">
+      {error && <p className="rounded-xl bg-destructive/10 px-4 py-3 text-sm text-destructive">{error}</p>}
+      <section>
+        <h2 className="font-semibold">Próximos agendamentos</h2>
+        <div className="mt-4 space-y-3">
+          {upcoming.length === 0 && <p className="rounded-2xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">Você não tem agendamentos futuros.</p>}
+          {upcoming.map((b) => (
+            <div key={b.id} className="flex flex-wrap items-center gap-3 rounded-2xl border border-border bg-card p-4">
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium">{b.barberName} · {b.serviceName}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{new Date(b.scheduledAt).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })} · {centsToMoney(b.priceCents)}</p>
+              </div>
+              <span className="rounded-lg bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">{statusLabel(b.status)}</span>
+              {(b.status === 'requested' || b.status === 'confirmed') && (
+                <button onClick={() => cancel(b.id)} disabled={cancelling === b.id} className="flex items-center gap-1 rounded-lg bg-destructive/10 px-3 py-1.5 text-xs font-medium text-destructive disabled:opacity-50"><X size={12} />Cancelar</button>
+              )}
+            </div>
+          ))}
+        </div>
+      </section>
+      <section>
+        <h2 className="font-semibold">Histórico</h2>
+        <div className="mt-4 space-y-3">
+          {history.length === 0 && <p className="rounded-2xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">Nenhum atendimento no histórico ainda.</p>}
+          {history.map((b) => (
+            <div key={b.id} className="flex flex-wrap items-center gap-3 rounded-2xl border border-border bg-card p-4 opacity-80">
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium">{b.barberName} · {b.serviceName}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{new Date(b.scheduledAt).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })} · {centsToMoney(b.priceCents)}</p>
+              </div>
+              <span className={`rounded-lg px-2.5 py-1 text-xs font-medium ${b.status === 'completed' ? 'bg-emerald-500/15 text-emerald-400' : 'bg-muted text-muted-foreground'}`}>{statusLabel(b.status)}</span>
+            </div>
+          ))}
+        </div>
+      </section>
+    </div>
+  )
+}
+
+function ClientHome({ profile }: { profile: UserProfile | null }) {
+  const [section, setSection] = useState<'search' | 'bookings'>('search')
   const [query, setQuery] = useState('')
   const [online, setOnline] = useState(true)
   const [barbers, setBarbers] = useState<Barber[]>([])
@@ -120,6 +203,17 @@ function ClientHome() {
         </div>
       </section>
 
+      {profile && (
+        <div className="flex w-full items-center gap-1 overflow-x-auto rounded-xl border border-border bg-card p-1 sm:w-fit">
+          <button onClick={() => setSection('search')} className={`whitespace-nowrap rounded-lg px-4 py-2 text-xs font-medium ${section === 'search' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}`}>Buscar barbeiros</button>
+          <button onClick={() => setSection('bookings')} className={`whitespace-nowrap rounded-lg px-4 py-2 text-xs font-medium ${section === 'bookings' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}`}>Meus agendamentos</button>
+        </div>
+      )}
+
+      {section === 'bookings' && profile ? (
+        <MyBookings />
+      ) : (
+        <>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="font-semibold">Barbeiros perto de você</h2>
@@ -149,6 +243,8 @@ function ClientHome() {
 
       {loading && <div className="rounded-2xl border border-dashed border-border p-10 text-center text-sm text-muted-foreground">Carregando barbeiros...</div>}
       {!loading && filtered.length === 0 && <div className="rounded-2xl border border-dashed border-border p-10 text-center text-sm text-muted-foreground">Nenhum barbeiro online encontrado nessa região.</div>}
+        </>
+      )}
 
       {selected && <BookingModal barber={selected} onClose={() => setSelected(null)} />}
     </div>
@@ -175,9 +271,16 @@ function BarberHome({ onSettings, profile }: { onSettings: () => void; profile: 
   }, [])
 
   useEffect(() => { load() }, [load])
+  usePolling(load, POLL_INTERVAL_MS)
 
-  const todayBookings = useMemo(() => bookings.filter((b) => isToday(b.scheduledAt) && b.status !== 'cancelled'), [bookings])
-  const queue = useMemo(() => bookings.filter((b) => b.status === 'waiting' || b.status === 'in_service'), [bookings])
+  const todayBookings = useMemo(
+    () => bookings.filter((b) => isToday(b.scheduledAt) && b.status !== 'cancelled').sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt)),
+    [bookings],
+  )
+  const queue = useMemo(
+    () => bookings.filter((b) => b.status === 'waiting' || b.status === 'in_service').sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt)),
+    [bookings],
+  )
 
   async function addService(event: React.FormEvent) {
     event.preventDefault()
@@ -399,7 +502,7 @@ export default function Page() {
         </div>
       </header>
       <div className="px-4 py-6 sm:px-6 lg:px-10 lg:py-10">
-        {mode === 'client' ? <ClientHome /> : isBarber && profile && <BarberHome onSettings={() => setSettingsOpen(true)} profile={profile} />}
+        {mode === 'client' ? <ClientHome profile={profile} /> : isBarber && profile && <BarberHome onSettings={() => setSettingsOpen(true)} profile={profile} />}
       </div>
       {profile && <SettingsPanel profile={profile} open={settingsOpen} onClose={() => setSettingsOpen(false)} onSaved={(next) => { setProfile(next); setSettingsOpen(false) }} />}
     </main>
