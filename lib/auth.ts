@@ -9,11 +9,17 @@ export const auth = betterAuth({
   emailAndPassword: { enabled: true, autoSignIn: true },
   user: {
     additionalFields: {
+      // input:false — nunca setável pelo próprio usuário via sign-up/update-user do
+      // better-auth (que não distingue "criar" de "atualizar" para esse gate). Sem
+      // isso, qualquer client autenticado poderia virar barbeiro com um
+      // POST /api/auth/update-user { role: "barber" }. Só é definido pela nossa
+      // própria rota de cadastro (app/api/auth/signup/route.ts), com uma escrita
+      // direta no banco fora do alcance do better-auth.
       role: {
         type: 'string',
         required: true,
         defaultValue: 'client',
-        input: true,
+        input: false,
       },
       phone: {
         type: 'string',

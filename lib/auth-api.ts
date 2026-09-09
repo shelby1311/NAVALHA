@@ -31,7 +31,7 @@ export const authApi = {
     businessName?: string
     city?: string
     neighborhood?: string
-  }) => post('/api/auth/sign-up/email', payload),
+  }) => post('/api/auth/signup', payload),
 
   signInEmail: (payload: { email: string; password: string }) => post('/api/auth/sign-in/email', payload),
 }
