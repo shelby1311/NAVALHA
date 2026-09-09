@@ -106,9 +106,20 @@ export type FinancialEntry = {
 }
 
 export type BarberSearchFilters = {
-  city: string
-  neighborhood?: string
+  q?: string
   onlyOnline: boolean
+  lat?: number
+  lng?: number
+}
+
+export type BarberSearchResult = {
+  id: string
+  name: string
+  businessName: string | null
+  city: string | null
+  neighborhood: string | null
+  isOnline: boolean
+  distanceKm: number | null
 }
 
 export type AvailabilityResponse = { slots: string[] }

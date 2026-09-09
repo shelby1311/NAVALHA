@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { isResponse, requireUser } from '@/lib/authz'
 import { WEEKDAY_KEYS, parseTimeToMinutes } from '@/lib/business-hours'
 import { db } from '@/lib/db'
+import { geocodeAddress } from '@/lib/geocode'
 import { toProfile } from '@/lib/profile'
 import { user } from '@/lib/schema'
 
@@ -58,14 +59,29 @@ export async function PATCH(request: Request) {
   const [current] = await db.select().from(user).where(eq(user.id, sessionUser.id))
   if (!current) return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 })
 
+  const nextCity = typeof body.city === 'string' ? body.city.trim() : current.city
+  const nextNeighborhood = typeof body.neighborhood === 'string' ? body.neighborhood.trim() : current.neighborhood
+  const addressChanged = nextCity !== current.city || nextNeighborhood !== current.neighborhood
+
+  // Só barbeiros aparecem na busca por distância — não gastar chamadas ao Nominatim à toa.
+  let latitude = current.latitude
+  let longitude = current.longitude
+  if (current.role === 'barber' && addressChanged) {
+    const geocoded = await geocodeAddress(nextCity ?? '', nextNeighborhood ?? '')
+    latitude = geocoded?.latitude ?? null
+    longitude = geocoded?.longitude ?? null
+  }
+
   const [updated] = await db
     .update(user)
     .set({
       name: isValidString(body.name, MAX_NAME_LENGTH) ? body.name.trim() : current.name,
       phone: typeof body.phone === 'string' ? body.phone.trim() : current.phone,
       avatarUrl: typeof body.avatarUrl === 'string' ? body.avatarUrl : current.avatarUrl,
-      city: typeof body.city === 'string' ? body.city.trim() : current.city,
-      neighborhood: typeof body.neighborhood === 'string' ? body.neighborhood.trim() : current.neighborhood,
+      city: nextCity,
+      neighborhood: nextNeighborhood,
+      latitude,
+      longitude,
       openingHours: body.openingHours !== undefined ? (body.openingHours as typeof current.openingHours) : current.openingHours,
       updatedAt: new Date(),
     })

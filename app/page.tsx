@@ -10,7 +10,7 @@ import { centsToMoney, type BarberService, type BookingStatus, type BookingWithD
 
 type ViewMode = 'client' | 'barber'
 const POLL_INTERVAL_MS = 5000
-type Barber = { id: string; name: string; place: string; online: boolean; avatar: string }
+type Barber = { id: string; name: string; place: string; online: boolean; avatar: string; distanceKm: number | null }
 
 function initials(name: string) {
   return name.split(' ').filter(Boolean).map((part) => part[0]).join('').slice(0, 2).toUpperCase()
@@ -157,15 +157,31 @@ function MyBookings() {
 function ClientHome({ profile }: { profile: UserProfile | null }) {
   const [section, setSection] = useState<'search' | 'bookings'>('search')
   const [query, setQuery] = useState('')
+  const [debouncedQuery, setDebouncedQuery] = useState('')
   const [online, setOnline] = useState(true)
   const [barbers, setBarbers] = useState<Barber[]>([])
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState<Barber | null>(null)
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null)
+
+  useEffect(() => {
+    const timeout = setTimeout(() => setDebouncedQuery(query.trim()), 300)
+    return () => clearTimeout(timeout)
+  }, [query])
+
+  useEffect(() => {
+    if (!navigator.geolocation) return
+    navigator.geolocation.getCurrentPosition(
+      (position) => setCoords({ lat: position.coords.latitude, lng: position.coords.longitude }),
+      () => {}, // permissão negada ou indisponível: segue sem localização
+      { maximumAge: 5 * 60_000, timeout: 8000 },
+    )
+  }, [])
 
   useEffect(() => {
     let active = true
     setLoading(true)
-    apiClient.searchBarbers({ city: '', onlyOnline: online }).then((res) => {
+    apiClient.searchBarbers({ q: debouncedQuery || undefined, onlyOnline: online, lat: coords?.lat, lng: coords?.lng }).then((res) => {
       if (!active) return
       setLoading(false)
       setBarbers((res.data ?? []).map((b) => ({
@@ -174,12 +190,13 @@ function ClientHome({ profile }: { profile: UserProfile | null }) {
         place: [b.neighborhood, b.city].filter(Boolean).join(', ') || 'Local não informado',
         online: b.isOnline,
         avatar: initials(b.businessName || b.name),
+        distanceKm: b.distanceKm,
       })))
     })
     return () => { active = false }
-  }, [online])
+  }, [online, debouncedQuery, coords])
 
-  const filtered = useMemo(() => barbers.filter((b) => `${b.name} ${b.place}`.toLowerCase().includes(query.toLowerCase())), [query, barbers])
+  const filtered = barbers
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 pb-10">
@@ -195,7 +212,7 @@ function ClientHome({ profile }: { profile: UserProfile | null }) {
         <div className="mt-7 flex flex-col gap-3 rounded-2xl border border-border bg-background p-3 md:flex-row">
           <div className="flex min-w-0 flex-1 items-center gap-3 rounded-xl bg-muted px-4">
             <Search size={18} className="shrink-0 text-muted-foreground" />
-            <input value={query} onChange={(event) => setQuery(event.target.value)} aria-label="Buscar por cidade ou bairro" placeholder="Digite cidade, bairro ou barbearia" className="w-full bg-transparent py-3 text-sm outline-none" />
+            <input value={query} onChange={(event) => setQuery(event.target.value)} aria-label="Buscar por nome, cidade ou bairro" placeholder="Digite nome, cidade ou bairro" className="w-full bg-transparent py-3 text-sm outline-none" />
           </div>
           <button onClick={() => setOnline(!online)} className={`flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-medium ${online ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}>
             <span className={`size-2 rounded-full ${online ? 'bg-emerald-300' : 'bg-muted-foreground'}`} />Online agora
@@ -228,7 +245,7 @@ function ClientHome({ profile }: { profile: UserProfile | null }) {
               <div className="grid size-14 shrink-0 place-items-center rounded-2xl bg-primary/15 font-semibold text-primary">{barber.avatar}</div>
               <div className="min-w-0 flex-1">
                 <h3 className="font-semibold">{barber.name}</h3>
-                <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground"><MapPin size={12} />{barber.place}</p>
+                <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground"><MapPin size={12} />{barber.place}{barber.distanceKm != null && ` · ${barber.distanceKm < 1 ? `${Math.round(barber.distanceKm * 1000)} m` : `${barber.distanceKm.toFixed(1)} km`}`}</p>
                 <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
                   <span className={`flex items-center gap-2 text-xs ${barber.online ? 'text-emerald-400' : 'text-muted-foreground'}`}>
                     <span className="size-2 rounded-full bg-current" />{barber.online ? 'Livre agora' : 'Indisponível'}

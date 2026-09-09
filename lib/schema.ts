@@ -1,6 +1,6 @@
 import { relations, sql } from 'drizzle-orm'
 import type { InferSelectModel } from 'drizzle-orm'
-import { boolean, check, index, integer, json, pgTable, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core'
+import { boolean, check, doublePrecision, index, integer, json, pgTable, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core'
 
 // =============================================================================
 // Tabelas de autenticação (better-auth)
@@ -24,6 +24,11 @@ export const user = pgTable('user', {
   businessName: text('business_name'),
   city: text('city'),
   neighborhood: text('neighborhood'),
+  // Geocodificados automaticamente a partir de city/neighborhood (ver lib/geocode.ts).
+  // Nulos quando a geocodificação falha ou ainda não rodou — o barbeiro só fica de
+  // fora da ordenação por distância, nunca some da busca.
+  latitude: doublePrecision('latitude'),
+  longitude: doublePrecision('longitude'),
   theme: text('theme').default('dark'),
   notifications: boolean('notifications').default(true),
   isOnline: boolean('is_online').default(false),

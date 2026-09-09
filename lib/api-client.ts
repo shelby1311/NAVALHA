@@ -1,4 +1,4 @@
-import type { ApiResult, AvailabilityResponse, BarberSearchFilters, BarberService, Booking, BookingPayload, BookingStatus, BookingWithDetails, FinancialEntry, MyBooking, ServicePayload, UpdateProfilePayload, UserProfile } from './contracts'
+import type { ApiResult, AvailabilityResponse, BarberSearchFilters, BarberSearchResult, BarberService, Booking, BookingPayload, BookingStatus, BookingWithDetails, FinancialEntry, MyBooking, ServicePayload, UpdateProfilePayload, UserProfile } from './contracts'
 import { API_ENDPOINTS } from './contracts'
 
 async function request<T>(url: string, init?: RequestInit): Promise<ApiResult<T>> {
@@ -22,8 +22,11 @@ export const apiClient = {
   uploadAvatar: (file: File) => { const form = new FormData(); form.set('file', file); return request<UserProfile>(`${API_ENDPOINTS.profile}/avatar`, { method: 'POST', body: form }) },
   updatePreferences: (payload: Pick<UserProfile, 'theme' | 'notifications' | 'isOnline'>) => request<UserProfile>(API_ENDPOINTS.preferences, { method: 'PATCH', body: JSON.stringify(payload) }),
   searchBarbers: (filters: BarberSearchFilters) => {
-    const params = new URLSearchParams({ city: filters.city, ...(filters.neighborhood ? { neighborhood: filters.neighborhood } : {}), onlyOnline: String(filters.onlyOnline) })
-    return request<UserProfile[]>(`${API_ENDPOINTS.discovery}?${params}`)
+    const params = new URLSearchParams({ onlyOnline: String(filters.onlyOnline) })
+    if (filters.q) params.set('q', filters.q)
+    if (filters.lat != null) params.set('lat', String(filters.lat))
+    if (filters.lng != null) params.set('lng', String(filters.lng))
+    return request<BarberSearchResult[]>(`${API_ENDPOINTS.discovery}?${params}`)
   },
   listServices: () => request<BarberService[]>(API_ENDPOINTS.services),
   createService: (payload: ServicePayload) => request<BarberService>(API_ENDPOINTS.services, { method: 'POST', body: JSON.stringify(payload) }),
