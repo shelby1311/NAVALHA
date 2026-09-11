@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Plus, Receipt } from 'lucide-react'
+import { Card } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Input, Select } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -60,9 +61,9 @@ export function BarberFinance({ finances, onFinancesChange, loading }: Props) {
 
       <TabsPanel value={financePeriod}>
       <div className="mt-5 grid gap-3 sm:grid-cols-3">
-        <div className="rounded-xl border border-border p-4"><p className="text-xs text-muted-foreground">Receitas</p><p className="mt-2 text-lg font-semibold text-emerald-400">{centsToMoney(periodIncome)}</p></div>
-        <div className="rounded-xl border border-border p-4"><p className="text-xs text-muted-foreground">Despesas</p><p className="mt-2 text-lg font-semibold text-destructive">{centsToMoney(periodExpense)}</p></div>
-        <div className="rounded-xl border border-border p-4"><p className="text-xs text-muted-foreground">Saldo</p><p className="mt-2 text-lg font-semibold">{centsToMoney(periodIncome - periodExpense)}</p></div>
+        <Card className="p-4"><p className="text-xs text-muted-foreground">Receitas</p><p className="mt-2 text-lg font-semibold text-emerald-400">{centsToMoney(periodIncome)}</p></Card>
+        <Card className="p-4"><p className="text-xs text-muted-foreground">Despesas</p><p className="mt-2 text-lg font-semibold text-destructive">{centsToMoney(periodExpense)}</p></Card>
+        <Card className="p-4"><p className="text-xs text-muted-foreground">Saldo</p><p className="mt-2 text-lg font-semibold">{centsToMoney(periodIncome - periodExpense)}</p></Card>
       </div>
 
       <form onSubmit={addFinanceEntry} className="mt-6 grid gap-3 rounded-xl border border-border bg-background p-4 sm:grid-cols-[110px_1fr_1fr_120px_auto]">
