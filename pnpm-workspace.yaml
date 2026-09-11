@@ -1,7 +1,13 @@
+overrides:
+  # better-auth@1.7.2 (a runtime dep) precisa de better-call >=1.4 (exporta
+  # kAPIErrorHeaderSymbol); sem isso o build quebra porque o resolvedor dedup
+  # com o better-call 1.1.8 que o @better-auth/cli (dev, versão antiga) usa.
+  better-call: ^1.4.0
 allowBuilds:
   '@prisma/client': false
   better-sqlite3: false
   esbuild: true
+  unrs-resolver: false
 minimumReleaseAgeExclude:
   - '@next/*'
   - next
