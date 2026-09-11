@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus, Scissors } from 'lucide-react'
+import { Pencil, Plus, Scissors } from 'lucide-react'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -88,16 +88,18 @@ export function BarberServices({ services, onServicesChange, loading }: Props) {
               </div>
               {editingId === service.id ? (
                 <>
-                  <input value={editPrice} onChange={(e) => setEditPrice(e.target.value)} placeholder="Preço (R$)" inputMode="decimal" aria-label="Editar preço" className="w-24 rounded-lg border border-input bg-background px-2 py-1.5 text-xs outline-none" />
-                  <input value={editDuration} onChange={(e) => setEditDuration(e.target.value)} placeholder="Minutos" inputMode="numeric" aria-label="Editar duração" className="w-20 rounded-lg border border-input bg-background px-2 py-1.5 text-xs outline-none" />
+                  <input value={editPrice} onChange={(e) => setEditPrice(e.target.value)} placeholder="Preço (R$)" inputMode="decimal" aria-label="Editar preço" className="w-24 rounded-lg border border-input bg-background px-2 py-1.5 text-xs outline-none focus:ring-2 focus:ring-ring" />
+                  <input value={editDuration} onChange={(e) => setEditDuration(e.target.value)} placeholder="Minutos" inputMode="numeric" aria-label="Editar duração" className="w-20 rounded-lg border border-input bg-background px-2 py-1.5 text-xs outline-none focus:ring-2 focus:ring-ring" />
                   <button onClick={() => saveEdit(service.id)} className="rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground">Salvar</button>
                   <button onClick={() => setEditingId(null)} className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium">Cancelar</button>
                 </>
               ) : (
                 <>
-                  <button onClick={() => startEdit(service)} className="text-sm font-semibold hover:underline">{centsToMoney(service.priceCents)}</button>
+                  <button onClick={() => startEdit(service)} aria-label={`Editar preço e duração de ${service.name}`} className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-sm font-semibold hover:bg-muted">
+                    {centsToMoney(service.priceCents)}<Pencil size={12} className="text-muted-foreground" />
+                  </button>
                   <span className="text-xs text-muted-foreground">{service.durationMinutes} min</span>
-                  <button onClick={() => toggleService(service)} className={`rounded-lg px-3 py-1.5 text-xs font-medium ${service.active ? 'bg-emerald-500/15 text-emerald-400' : 'bg-muted text-muted-foreground'}`}>
+                  <button onClick={() => toggleService(service)} aria-pressed={service.active} className={`rounded-lg px-3 py-1.5 text-xs font-medium ${service.active ? 'bg-emerald-500/15 text-emerald-400' : 'bg-muted text-muted-foreground'}`}>
                     {service.active ? 'Ativo' : 'Pausado'}
                   </button>
                 </>

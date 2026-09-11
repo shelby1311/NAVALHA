@@ -108,7 +108,7 @@ export function BookingModal({ barber, onClose }: Props) {
                 {days.map((day) => {
                   const key = dateKey(day)
                   return (
-                    <button key={key} type="button" onClick={() => setSelectedDay(key)} className={`shrink-0 rounded-xl border px-3 py-2 text-xs ${selectedDay === key ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:border-primary/50'}`}>
+                    <button key={key} type="button" onClick={() => setSelectedDay(key)} className={`shrink-0 rounded-xl border px-3.5 py-2.5 text-xs ${selectedDay === key ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:border-primary/50'}`}>
                       {dayLabel(day)}
                     </button>
                   )
@@ -124,7 +124,7 @@ export function BookingModal({ barber, onClose }: Props) {
               {serviceId && !loadingSlots && slots.length > 0 && (
                 <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4">
                   {slots.map((slot) => (
-                    <button key={slot} type="button" onClick={() => setScheduledAt(slot)} className={`rounded-xl border px-3 py-2.5 text-xs ${scheduledAt === slot ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:border-primary/50'}`}>
+                    <button key={slot} type="button" onClick={() => setScheduledAt(slot)} className={`rounded-xl border px-3 py-3 text-xs ${scheduledAt === slot ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:border-primary/50'}`}>
                       {new Date(slot).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                     </button>
                   ))}

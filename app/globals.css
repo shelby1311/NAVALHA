@@ -86,7 +86,7 @@ body { @apply bg-background text-foreground font-sans; }
 ::-webkit-scrollbar { width: 8px; }
 ::-webkit-scrollbar-track { background: var(--background); }
 ::-webkit-scrollbar-thumb { background: var(--muted); border-radius: 999px; }
-button, a { -webkit-tap-highlight-color: transparent; }
+button, a { -webkit-tap-highlight-color: transparent; transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease, opacity 150ms ease; }
 
 /* Layout responsivo da Navalha: touch-first, sem overflow horizontal e com leitura confortável. */
 img, svg { max-width: 100%; }

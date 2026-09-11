@@ -96,7 +96,7 @@ export function BarberHome({ onSettings, profile }: { onSettings: () => void; pr
       <div className="mt-6 grid gap-6 lg:grid-cols-[220px_1fr]">
         <aside className="flex gap-2 overflow-x-auto lg:flex-col">
           {nav.map(({ key, label, icon: Icon }) => (
-            <button key={key} onClick={() => setSection(key)} className={`flex shrink-0 items-center gap-3 rounded-xl px-4 py-3 text-left text-sm ${section === key ? 'bg-primary text-primary-foreground' : 'border border-border bg-card text-muted-foreground'}`}>
+            <button key={key} onClick={() => setSection(key)} aria-current={section === key ? 'page' : undefined} className={`flex shrink-0 items-center gap-3 rounded-xl px-4 py-3 text-left text-sm ${section === key ? 'bg-primary text-primary-foreground' : 'border border-border bg-card text-muted-foreground'}`}>
               <Icon size={17} />{label}
             </button>
           ))}

@@ -3,7 +3,7 @@ import { Plus, Receipt } from 'lucide-react'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Input, Select } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Tabs, TabsList, TabsTab } from '@/components/ui/tabs'
+import { Tabs, TabsList, TabsPanel, TabsTab } from '@/components/ui/tabs'
 import { useToast } from '@/components/ui/toast'
 import { apiClient } from '@/lib/api-client'
 import { centsToMoney, type FinancialEntry } from '@/lib/contracts'
@@ -47,19 +47,18 @@ export function BarberFinance({ finances, onFinancesChange, loading }: Props) {
   }
 
   return (
-    <>
+    <Tabs value={financePeriod} onValueChange={(v) => setFinancePeriod(v as typeof financePeriod)}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="font-semibold">Financeiro</h2>
           <p className="mt-1 text-sm text-muted-foreground">Receitas (geradas automaticamente ao concluir um atendimento) e despesas.</p>
         </div>
-        <Tabs value={financePeriod} onValueChange={(v) => setFinancePeriod(v as typeof financePeriod)}>
-          <TabsList>
-            {PERIODS.map(({ key, label }) => <TabsTab key={key} value={key}>{label}</TabsTab>)}
-          </TabsList>
-        </Tabs>
+        <TabsList>
+          {PERIODS.map(({ key, label }) => <TabsTab key={key} value={key}>{label}</TabsTab>)}
+        </TabsList>
       </div>
 
+      <TabsPanel value={financePeriod}>
       <div className="mt-5 grid gap-3 sm:grid-cols-3">
         <div className="rounded-xl border border-border p-4"><p className="text-xs text-muted-foreground">Receitas</p><p className="mt-2 text-lg font-semibold text-emerald-400">{centsToMoney(periodIncome)}</p></div>
         <div className="rounded-xl border border-border p-4"><p className="text-xs text-muted-foreground">Despesas</p><p className="mt-2 text-lg font-semibold text-destructive">{centsToMoney(periodExpense)}</p></div>
@@ -99,6 +98,7 @@ export function BarberFinance({ finances, onFinancesChange, loading }: Props) {
           ))
         )}
       </div>
-    </>
+      </TabsPanel>
+    </Tabs>
   )
 }

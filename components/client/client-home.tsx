@@ -4,7 +4,7 @@ import { BookingModal } from '@/components/navalha/booking-modal'
 import { Card } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Tabs, TabsList, TabsTab } from '@/components/ui/tabs'
+import { Tabs, TabsList, TabsPanel, TabsTab } from '@/components/ui/tabs'
 import { apiClient } from '@/lib/api-client'
 import type { UserProfile } from '@/lib/contracts'
 import { initials } from '@/lib/ui'
@@ -68,29 +68,43 @@ export function ClientHome({ profile }: { profile: UserProfile | null }) {
           <div className="hidden rounded-2xl bg-primary/10 p-4 text-primary sm:block"><MapPin size={26} /></div>
         </div>
         <div className="mt-7 flex flex-col gap-3 rounded-2xl border border-border bg-background p-3 md:flex-row">
-          <div className="flex min-w-0 flex-1 items-center gap-3 rounded-xl bg-muted px-4">
+          <div className="flex min-w-0 flex-1 items-center gap-3 rounded-xl bg-muted px-4 focus-within:ring-2 focus-within:ring-ring">
             <Search size={18} className="shrink-0 text-muted-foreground" />
             <input value={query} onChange={(event) => setQuery(event.target.value)} aria-label="Buscar por nome, cidade ou bairro" placeholder="Digite nome, cidade ou bairro" className="w-full bg-transparent py-3 text-sm outline-none" />
           </div>
-          <button onClick={() => setOnline(!online)} className={`flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-medium ${online ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}>
+          <button onClick={() => setOnline(!online)} aria-pressed={online} className={`flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-medium ${online ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}>
             <span className={`size-2 rounded-full ${online ? 'bg-emerald-300' : 'bg-muted-foreground'}`} />Online agora
           </button>
         </div>
       </section>
 
-      {profile && (
+      {profile ? (
         <Tabs value={section} onValueChange={(v) => setSection(v as typeof section)}>
           <TabsList className="w-full sm:w-fit">
             <TabsTab value="search">Buscar barbeiros</TabsTab>
             <TabsTab value="bookings">Meus agendamentos</TabsTab>
           </TabsList>
+          <TabsPanel value="bookings" className="mt-6">
+            <MyBookings />
+          </TabsPanel>
+          <TabsPanel value="search" className="mt-6 space-y-6">
+            <SearchResults filtered={filtered} loading={loading} online={online} onSelect={setSelected} />
+          </TabsPanel>
         </Tabs>
+      ) : (
+        <div className="space-y-6">
+          <SearchResults filtered={filtered} loading={loading} online={online} onSelect={setSelected} />
+        </div>
       )}
 
-      {section === 'bookings' && profile ? (
-        <MyBookings />
-      ) : (
-        <>
+      {selected && <BookingModal barber={selected} onClose={() => setSelected(null)} />}
+    </div>
+  )
+}
+
+function SearchResults({ filtered, loading, online, onSelect }: { filtered: Barber[]; loading: boolean; online: boolean; onSelect: (barber: Barber) => void }) {
+  return (
+    <>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="font-semibold">Barbeiros perto de você</h2>
@@ -122,7 +136,7 @@ export function ClientHome({ profile }: { profile: UserProfile | null }) {
                     <span className={`flex items-center gap-2 text-xs ${barber.online ? 'text-emerald-400' : 'text-muted-foreground'}`}>
                       <span className="size-2 rounded-full bg-current" />{barber.online ? 'Livre agora' : 'Indisponível'}
                     </span>
-                    <button onClick={() => setSelected(barber)} className="flex items-center gap-1 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground">Ver horários <ChevronRight size={14} /></button>
+                    <button onClick={() => onSelect(barber)} className="flex items-center gap-1 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground">Ver horários <ChevronRight size={14} /></button>
                   </div>
                 </div>
               </div>
@@ -130,10 +144,6 @@ export function ClientHome({ profile }: { profile: UserProfile | null }) {
           ))}
         </section>
       )}
-        </>
-      )}
-
-      {selected && <BookingModal barber={selected} onClose={() => setSelected(null)} />}
-    </div>
+    </>
   )
 }

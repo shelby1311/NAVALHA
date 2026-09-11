@@ -21,7 +21,7 @@ function TabsTab({ className, ...props }: TabsPrimitive.Tab.Props) {
     <TabsPrimitive.Tab
       data-slot="tabs-tab"
       className={cn(
-        'whitespace-nowrap rounded-lg px-4 py-2 text-xs font-medium text-muted-foreground outline-none data-[selected]:bg-primary data-[selected]:text-primary-foreground',
+        'whitespace-nowrap rounded-lg px-4 py-2 text-xs font-medium text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[selected]:bg-primary data-[selected]:text-primary-foreground',
         className,
       )}
       {...props}
@@ -30,7 +30,7 @@ function TabsTab({ className, ...props }: TabsPrimitive.Tab.Props) {
 }
 
 function TabsPanel({ className, ...props }: TabsPrimitive.Panel.Props) {
-  return <TabsPrimitive.Panel data-slot="tabs-panel" className={cn('outline-none', className)} {...props} />
+  return <TabsPrimitive.Panel data-slot="tabs-panel" className={cn('focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-lg', className)} {...props} />
 }
 
 export { Tabs, TabsList, TabsTab, TabsPanel }

@@ -51,8 +51,8 @@ export default function Page() {
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3">
           <Logo />
           <div className="order-3 flex w-full items-center gap-1 overflow-x-auto rounded-xl border border-border bg-card p-1 md:order-none md:w-auto">
-            <button onClick={() => setMode('client')} className={`whitespace-nowrap rounded-lg px-4 py-2 text-xs font-medium ${mode === 'client' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}`}>Encontrar barbeiro</button>
-            {isBarber && <button onClick={() => setMode('barber')} className={`whitespace-nowrap rounded-lg px-4 py-2 text-xs font-medium ${mode === 'barber' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}`}>Minha barbearia</button>}
+            <button onClick={() => setMode('client')} aria-current={mode === 'client' ? 'page' : undefined} className={`whitespace-nowrap rounded-lg px-4 py-2 text-xs font-medium ${mode === 'client' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}`}>Encontrar barbeiro</button>
+            {isBarber && <button onClick={() => setMode('barber')} aria-current={mode === 'barber' ? 'page' : undefined} className={`whitespace-nowrap rounded-lg px-4 py-2 text-xs font-medium ${mode === 'barber' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}`}>Minha barbearia</button>}
           </div>
           <div className="flex items-center gap-2">
             <span className="hidden text-xs text-muted-foreground sm:inline">{mode === 'client' ? 'Acesso gratuito' : 'Painel profissional'}</span>

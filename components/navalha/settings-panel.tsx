@@ -66,8 +66,9 @@ export function SettingsPanel({ profile, open, onClose, onSaved }: Props) {
   // Tema é aplicado em preview ao vivo (`update`) — se fechar sem salvar (X, ESC,
   // clique fora ou Cancelar), volta pro tema realmente salvo.
   function handleOpenChange(next: boolean) {
-    if (!next) applyTheme(profile.theme)
-    if (!next) onClose()
+    if (next) return
+    applyTheme(profile.theme)
+    onClose()
   }
 
   async function signOut() {
@@ -125,9 +126,9 @@ export function SettingsPanel({ profile, open, onClose, onSaved }: Props) {
                   return (
                     <div key={day} className="flex flex-wrap items-center gap-3 rounded-xl border border-border p-3 text-sm">
                       <label className="flex w-24 items-center gap-2 font-medium"><input type="checkbox" checked={config.active} onChange={(e) => updateDay(day, { active: e.target.checked })} />{DAY_LABELS[day]}</label>
-                      <input type="time" value={config.open} disabled={!config.active} onChange={(e) => updateDay(day, { open: e.target.value })} className="rounded-lg border border-input bg-background px-2 py-1.5 text-xs outline-none disabled:opacity-40" />
+                      <input type="time" value={config.open} disabled={!config.active} onChange={(e) => updateDay(day, { open: e.target.value })} className="rounded-lg border border-input bg-background px-2 py-1.5 text-xs outline-none focus:ring-2 focus:ring-ring disabled:opacity-40" />
                       <span className="text-xs text-muted-foreground">até</span>
-                      <input type="time" value={config.close} disabled={!config.active} onChange={(e) => updateDay(day, { close: e.target.value })} className="rounded-lg border border-input bg-background px-2 py-1.5 text-xs outline-none disabled:opacity-40" />
+                      <input type="time" value={config.close} disabled={!config.active} onChange={(e) => updateDay(day, { close: e.target.value })} className="rounded-lg border border-input bg-background px-2 py-1.5 text-xs outline-none focus:ring-2 focus:ring-ring disabled:opacity-40" />
                     </div>
                   )
                 })}

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { CalendarX2, History, X } from 'lucide-react'
+import { CalendarX2, CheckCircle2, X, XCircle } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
@@ -10,9 +10,9 @@ import { apiClient } from '@/lib/api-client'
 import { centsToMoney, type MyBooking } from '@/lib/contracts'
 import { POLL_INTERVAL_MS, statusBadgeVariant, statusLabel, usePolling } from '@/lib/ui'
 
-function BookingRow({ booking, onCancel, cancelling }: { booking: MyBooking; onCancel?: (id: string) => void; cancelling?: boolean }) {
+function BookingRow({ booking, onCancel, cancelling, highlight }: { booking: MyBooking; onCancel?: (id: string) => void; cancelling?: boolean; highlight?: boolean }) {
   return (
-    <Card className={booking.status === 'cancelled' || booking.status === 'completed' ? 'opacity-80' : undefined}>
+    <Card className={highlight ? 'border-primary/30 bg-primary/5' : booking.status === 'cancelled' ? 'opacity-70' : undefined}>
       <div className="flex flex-wrap items-center gap-3 p-4">
         <div className="min-w-0 flex-1">
           <p className="text-sm font-medium">{booking.barberName} · {booking.serviceName}</p>
@@ -55,7 +55,9 @@ export function MyBookings() {
   }
 
   const upcoming = useMemo(() => bookings.filter((b) => b.status !== 'cancelled' && b.status !== 'completed').sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt)), [bookings])
-  const history = useMemo(() => bookings.filter((b) => b.status === 'cancelled' || b.status === 'completed'), [bookings])
+  const completed = useMemo(() => bookings.filter((b) => b.status === 'completed').sort((a, b) => b.scheduledAt.localeCompare(a.scheduledAt)), [bookings])
+  const cancelled = useMemo(() => bookings.filter((b) => b.status === 'cancelled').sort((a, b) => b.scheduledAt.localeCompare(a.scheduledAt)), [bookings])
+  const [next, ...rest] = upcoming
 
   if (loading) {
     return (
@@ -75,7 +77,15 @@ export function MyBookings() {
           {upcoming.length === 0 && (
             <EmptyState icon={CalendarX2} title="Você não tem agendamentos futuros." description="Busque um barbeiro online perto de você para marcar um horário." />
           )}
-          {upcoming.map((b) => (
+          {next && (
+            <BookingRow
+              booking={next}
+              highlight
+              cancelling={cancelling === next.id}
+              onCancel={next.status === 'requested' || next.status === 'confirmed' ? () => setConfirmingId(next.id) : undefined}
+            />
+          )}
+          {rest.map((b) => (
             <BookingRow
               key={b.id}
               booking={b}
@@ -86,10 +96,17 @@ export function MyBookings() {
         </div>
       </section>
       <section>
-        <h2 className="font-semibold">Histórico</h2>
+        <h2 className="font-semibold">Concluídos</h2>
         <div className="mt-4 space-y-3">
-          {history.length === 0 && <EmptyState icon={History} title="Nenhum atendimento no histórico ainda." description="Seus cortes concluídos ou cancelados aparecem aqui." />}
-          {history.map((b) => <BookingRow key={b.id} booking={b} />)}
+          {completed.length === 0 && <EmptyState icon={CheckCircle2} title="Nenhum corte concluído ainda." description="Atendimentos finalizados aparecem aqui, com o valor que você realmente pagou." />}
+          {completed.map((b) => <BookingRow key={b.id} booking={b} />)}
+        </div>
+      </section>
+      <section>
+        <h2 className="font-semibold">Cancelados</h2>
+        <div className="mt-4 space-y-3">
+          {cancelled.length === 0 && <EmptyState icon={XCircle} title="Nenhum agendamento cancelado." description="Fica registrado aqui se você ou o barbeiro cancelarem um horário." />}
+          {cancelled.map((b) => <BookingRow key={b.id} booking={b} />)}
         </div>
       </section>
 
