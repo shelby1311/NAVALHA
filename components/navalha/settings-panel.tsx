@@ -1,9 +1,16 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Camera, Check, Globe2, Bell, X } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { Camera, Check, LogOut } from 'lucide-react'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Input, Label, Select } from '@/components/ui/input'
+import { Switch } from '@/components/ui/switch'
+import { Tabs, TabsList, TabsPanel, TabsTab } from '@/components/ui/tabs'
+import { useToast } from '@/components/ui/toast'
 import type { UserProfile } from '@/lib/contracts'
 import { apiClient } from '@/lib/api-client'
+import { authApi } from '@/lib/auth-api'
 import { DEFAULT_OPENING_HOURS } from '@/lib/business-hours'
 import { applyTheme } from '@/lib/theme'
 
@@ -16,15 +23,15 @@ export function SettingsPanel({ profile, open, onClose, onSaved }: Props) {
   const [draft, setDraft] = useState(profile)
   const [preview, setPreview] = useState(profile.avatarUrl)
   const [avatarFile, setAvatarFile] = useState<File | null>(null)
-  const [saved, setSaved] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const toast = useToast()
+  const router = useRouter()
 
-  useEffect(() => { if (open) { setDraft(profile); setPreview(profile.avatarUrl); setAvatarFile(null); setSaved(false); setError(null) } }, [open, profile])
-  if (!open) return null
+  useEffect(() => { if (open) { setDraft(profile); setPreview(profile.avatarUrl); setAvatarFile(null) } }, [open, profile])
 
   function update<K extends keyof UserProfile>(key: K, value: UserProfile[K]) {
     setDraft((current) => ({ ...current, [key]: value }))
+    // Preview ao vivo: o barbeiro/cliente vê o tema mudar antes de salvar.
     if (key === 'theme') applyTheme(value as UserProfile['theme'])
   }
   function updateDay(day: string, patch: Partial<{ open: string; close: string; active: boolean }>) {
@@ -42,53 +49,147 @@ export function SettingsPanel({ profile, open, onClose, onSaved }: Props) {
   }
   async function save() {
     setSaving(true)
-    setError(null)
     let avatarUrl = draft.avatarUrl
     if (avatarFile) {
       const uploaded = await apiClient.uploadAvatar(avatarFile)
-      if (uploaded.error) { setSaving(false); setError(uploaded.error); return }
+      if (uploaded.error) { setSaving(false); toast.add({ type: 'error', title: 'Não foi possível enviar a foto', description: uploaded.error }); return }
       avatarUrl = uploaded.data?.avatarUrl ?? avatarUrl
     }
     const result = await apiClient.updateProfile({ ...draft, avatarUrl })
     setSaving(false)
-    if (result.error) { setError(result.error); return }
+    if (result.error) { toast.add({ type: 'error', title: 'Não foi possível salvar', description: result.error }); return }
     const next = result.data ?? { ...draft, avatarUrl }
-    onSaved(next); setSaved(true); setTimeout(onClose, 700)
+    onSaved(next)
+    toast.add({ type: 'success', title: 'Configurações salvas' })
+    onClose()
   }
-  // Tema é aplicado em preview ao vivo (`update`) — se o usuário fechar sem salvar,
-  // volta pro tema realmente salvo em vez de deixar o preview "grudado".
-  function cancel() { applyTheme(profile.theme); onClose() }
+  // Tema é aplicado em preview ao vivo (`update`) — se fechar sem salvar (X, ESC,
+  // clique fora ou Cancelar), volta pro tema realmente salvo.
+  function handleOpenChange(next: boolean) {
+    if (!next) applyTheme(profile.theme)
+    if (!next) onClose()
+  }
 
-  return <div className="fixed inset-0 z-50 flex items-end justify-center bg-background/80 p-0 backdrop-blur-sm sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-labelledby="settings-title">
-    <div className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-t-3xl border border-border bg-card p-5 shadow-2xl sm:rounded-3xl sm:p-7">
-      <div className="flex items-start justify-between gap-4"><div><p className="text-xs uppercase tracking-[0.2em] text-primary">Conta e espaço</p><h2 id="settings-title" className="mt-2 text-2xl font-semibold">Configurações do perfil</h2><p className="mt-1 text-sm text-muted-foreground">Organize como clientes encontram você.</p></div><button onClick={cancel} className="rounded-xl p-2 text-muted-foreground hover:bg-muted" aria-label="Fechar configurações"><X size={19} /></button></div>
-      <div className="mt-7 grid gap-6 md:grid-cols-[180px_1fr]">
-        <div className="flex flex-col items-center gap-3"><div className="relative grid size-32 place-items-center overflow-hidden rounded-3xl bg-primary/15 text-3xl font-semibold text-primary">{preview ? <img src={preview} alt="Prévia da foto de perfil" className="size-full object-cover" /> : draft.name.split(' ').map((part) => part[0]).join('').slice(0, 2)}<label className="absolute inset-x-2 bottom-2 flex cursor-pointer items-center justify-center gap-1 rounded-xl bg-background/90 py-2 text-xs font-medium"><Camera size={14} /> Trocar foto<input type="file" accept="image/*" className="sr-only" onChange={chooseAvatar} /></label></div><p className="text-center text-xs text-muted-foreground">JPG ou PNG, até 5 MB</p></div>
-        <div className="grid gap-4 sm:grid-cols-2"><label className="grid gap-2 text-sm sm:col-span-2">Nome público<input value={draft.name} onChange={(e) => update('name', e.target.value)} className="rounded-xl border border-input bg-background px-3 py-3 outline-none focus:ring-2 focus:ring-ring" /></label><label className="grid gap-2 text-sm">Telefone<input value={draft.phone} onChange={(e) => update('phone', e.target.value)} className="rounded-xl border border-input bg-background px-3 py-3 outline-none focus:ring-2 focus:ring-ring" /></label><label className="grid gap-2 text-sm">Cidade<input value={draft.city} onChange={(e) => update('city', e.target.value)} className="rounded-xl border border-input bg-background px-3 py-3 outline-none focus:ring-2 focus:ring-ring" /></label><label className="grid gap-2 text-sm sm:col-span-2">Bairro<input value={draft.neighborhood} onChange={(e) => update('neighborhood', e.target.value)} className="rounded-xl border border-input bg-background px-3 py-3 outline-none focus:ring-2 focus:ring-ring" /></label></div>
-      </div>
-      {draft.role === 'barber' && (
-        <div className="mt-7 border-t border-border pt-6">
-          <b className="text-sm">Horário de funcionamento</b>
-          <p className="mt-1 text-xs text-muted-foreground">Os clientes só verão horários disponíveis dentro dessa janela.</p>
-          <div className="mt-4 grid gap-2">
-            {DAY_ORDER.map((day) => {
-              const config = draft.openingHours?.[day] ?? DEFAULT_OPENING_HOURS[day]
-              return (
-                <div key={day} className="flex flex-wrap items-center gap-3 rounded-xl border border-border p-3 text-sm">
-                  <label className="flex w-24 items-center gap-2 font-medium"><input type="checkbox" checked={config.active} onChange={(e) => updateDay(day, { active: e.target.checked })} />{DAY_LABELS[day]}</label>
-                  <input type="time" value={config.open} disabled={!config.active} onChange={(e) => updateDay(day, { open: e.target.value })} className="rounded-lg border border-input bg-background px-2 py-1.5 text-xs outline-none disabled:opacity-40" />
-                  <span className="text-xs text-muted-foreground">até</span>
-                  <input type="time" value={config.close} disabled={!config.active} onChange={(e) => updateDay(day, { close: e.target.value })} className="rounded-lg border border-input bg-background px-2 py-1.5 text-xs outline-none disabled:opacity-40" />
+  async function signOut() {
+    onClose()
+    await authApi.signOut()
+    router.push('/')
+    router.refresh()
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <p className="text-xs uppercase tracking-[0.2em] text-primary">Conta e espaço</p>
+          <DialogTitle className="mt-2">Configurações</DialogTitle>
+          <DialogDescription>Organize como clientes encontram você.</DialogDescription>
+        </DialogHeader>
+
+        <Tabs defaultValue="perfil" className="mt-6">
+          <TabsList className="w-full overflow-x-auto sm:w-fit">
+            <TabsTab value="perfil">Perfil</TabsTab>
+            {draft.role === 'barber' && <TabsTab value="agenda">Agenda</TabsTab>}
+            <TabsTab value="aparencia">Aparência</TabsTab>
+            <TabsTab value="notificacoes">Notificações</TabsTab>
+            <TabsTab value="conta">Conta</TabsTab>
+          </TabsList>
+
+          <TabsPanel value="perfil" className="mt-6">
+            <div className="grid gap-6 md:grid-cols-[140px_1fr]">
+              <div className="flex flex-col items-center gap-3">
+                <div className="relative grid size-28 place-items-center overflow-hidden rounded-3xl bg-primary/15 text-3xl font-semibold text-primary">
+                  {preview ? <img src={preview} alt="Prévia da foto de perfil" className="size-full object-cover" /> : draft.name.split(' ').map((part) => part[0]).join('').slice(0, 2)}
+                  <label className="absolute inset-x-2 bottom-2 flex cursor-pointer items-center justify-center gap-1 rounded-xl bg-background/90 py-2 text-xs font-medium">
+                    <Camera size={14} /> Trocar
+                    <input type="file" accept="image/*" className="sr-only" onChange={chooseAvatar} />
+                  </label>
                 </div>
-              )
-            })}
-          </div>
-        </div>
-      )}
+                <p className="text-center text-xs text-muted-foreground">JPG ou PNG, até 5 MB</p>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Label className="sm:col-span-2">Nome público<Input value={draft.name} onChange={(e) => update('name', e.target.value)} /></Label>
+                <Label>Telefone<Input value={draft.phone} onChange={(e) => update('phone', e.target.value)} /></Label>
+                <Label>Cidade<Input value={draft.city} onChange={(e) => update('city', e.target.value)} /></Label>
+                <Label className="sm:col-span-2">Bairro<Input value={draft.neighborhood} onChange={(e) => update('neighborhood', e.target.value)} /></Label>
+              </div>
+            </div>
+          </TabsPanel>
 
-      <div className="mt-7 grid gap-3 border-t border-border pt-6 sm:grid-cols-3"><button onClick={() => update('isOnline', !draft.isOnline)} className={`flex items-center gap-3 rounded-2xl border p-4 text-left ${draft.isOnline ? 'border-primary/50 bg-primary/10' : 'border-border'}`}><Globe2 size={18} className="text-primary" /><span className="flex-1"><b className="block text-sm">Disponível online</b><small className="text-xs text-muted-foreground">Aparecer na busca</small></span><span className={`size-2 rounded-full ${draft.isOnline ? 'bg-emerald-400' : 'bg-muted-foreground'}`} /></button><button onClick={() => update('notifications', !draft.notifications)} className="flex items-center gap-3 rounded-2xl border border-border p-4 text-left"><Bell size={18} className="text-primary" /><span className="flex-1"><b className="block text-sm">Notificações</b><small className="text-xs text-muted-foreground">Novos agendamentos</small></span><span className={`size-5 rounded-md border ${draft.notifications ? 'border-primary bg-primary text-primary-foreground' : 'border-input'}`}>{draft.notifications && <Check size={14} />}</span></button><label className="grid gap-2 rounded-2xl border border-border p-4 text-sm">Tema<select value={draft.theme} onChange={(e) => update('theme', e.target.value as UserProfile['theme'])} className="bg-transparent text-xs outline-none"><option value="dark">Escuro</option><option value="light">Claro</option><option value="system">Sistema</option></select></label></div>
-      {error && <p className="mt-4 rounded-xl bg-destructive/10 px-4 py-3 text-sm text-destructive">{error}</p>}
-      <div className="mt-7 flex flex-col-reverse gap-3 border-t border-border pt-5 sm:flex-row sm:justify-end"><button onClick={cancel} className="rounded-xl border border-border px-5 py-3 text-sm font-medium">Cancelar</button><button onClick={save} disabled={saving} className="flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground disabled:opacity-50">{saved ? <><Check size={16} /> Salvo</> : saving ? 'Salvando...' : 'Salvar alterações'}</button></div>
-    </div>
-  </div>
+          {draft.role === 'barber' && (
+            <TabsPanel value="agenda" className="mt-6">
+              <p className="text-sm text-muted-foreground">Os clientes só verão horários disponíveis dentro dessa janela.</p>
+              <div className="mt-4 grid gap-2">
+                {DAY_ORDER.map((day) => {
+                  const config = draft.openingHours?.[day] ?? DEFAULT_OPENING_HOURS[day]
+                  return (
+                    <div key={day} className="flex flex-wrap items-center gap-3 rounded-xl border border-border p-3 text-sm">
+                      <label className="flex w-24 items-center gap-2 font-medium"><input type="checkbox" checked={config.active} onChange={(e) => updateDay(day, { active: e.target.checked })} />{DAY_LABELS[day]}</label>
+                      <input type="time" value={config.open} disabled={!config.active} onChange={(e) => updateDay(day, { open: e.target.value })} className="rounded-lg border border-input bg-background px-2 py-1.5 text-xs outline-none disabled:opacity-40" />
+                      <span className="text-xs text-muted-foreground">até</span>
+                      <input type="time" value={config.close} disabled={!config.active} onChange={(e) => updateDay(day, { close: e.target.value })} className="rounded-lg border border-input bg-background px-2 py-1.5 text-xs outline-none disabled:opacity-40" />
+                    </div>
+                  )
+                })}
+              </div>
+            </TabsPanel>
+          )}
+
+          <TabsPanel value="aparencia" className="mt-6">
+            <div className="flex items-center justify-between gap-4 rounded-2xl border border-border p-4">
+              <div>
+                <p className="text-sm font-medium">Tema</p>
+                <p className="text-xs text-muted-foreground">Escuro, claro ou seguindo o sistema.</p>
+              </div>
+              <Select value={draft.theme} onChange={(e) => update('theme', e.target.value as UserProfile['theme'])} className="w-36">
+                <option value="dark">Escuro</option>
+                <option value="light">Claro</option>
+                <option value="system">Sistema</option>
+              </Select>
+            </div>
+          </TabsPanel>
+
+          <TabsPanel value="notificacoes" className="mt-6 grid gap-3">
+            <div className="flex items-center justify-between gap-4 rounded-2xl border border-border p-4">
+              <div>
+                <p className="text-sm font-medium">Notificações</p>
+                <p className="text-xs text-muted-foreground">Avisos de novos agendamentos.</p>
+              </div>
+              <Switch checked={draft.notifications} onCheckedChange={(checked) => update('notifications', checked)} />
+            </div>
+            {draft.role === 'barber' && (
+              <div className="flex items-center justify-between gap-4 rounded-2xl border border-border p-4">
+                <div>
+                  <p className="text-sm font-medium">Disponível online</p>
+                  <p className="text-xs text-muted-foreground">Aparecer na busca de clientes.</p>
+                </div>
+                <Switch checked={draft.isOnline} onCheckedChange={(checked) => update('isOnline', checked)} />
+              </div>
+            )}
+          </TabsPanel>
+
+          <TabsPanel value="conta" className="mt-6 grid gap-3">
+            <div className="rounded-2xl border border-border p-4 text-sm">
+              <p className="text-muted-foreground">E-mail</p>
+              <p className="mt-1 font-medium">{draft.email}</p>
+            </div>
+            <div className="rounded-2xl border border-border p-4 text-sm">
+              <p className="text-muted-foreground">Tipo de conta</p>
+              <p className="mt-1 font-medium">{draft.role === 'barber' ? 'Barbeiro' : 'Cliente'}</p>
+            </div>
+            <button onClick={signOut} className="flex items-center justify-center gap-2 rounded-2xl border border-destructive/30 p-4 text-sm font-medium text-destructive hover:bg-destructive/10">
+              <LogOut size={16} /> Sair da conta
+            </button>
+          </TabsPanel>
+        </Tabs>
+
+        <div className="mt-7 flex flex-col-reverse gap-3 border-t border-border pt-5 sm:flex-row sm:justify-end">
+          <button onClick={() => handleOpenChange(false)} className="rounded-xl border border-border px-5 py-3 text-sm font-medium">Cancelar</button>
+          <button onClick={save} disabled={saving} className="flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground disabled:opacity-50">
+            {saving ? 'Salvando...' : <><Check size={16} /> Salvar alterações</>}
+          </button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
 }

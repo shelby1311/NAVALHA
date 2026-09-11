@@ -12,7 +12,7 @@ function Textarea({ className, ...props }: React.ComponentProps<'textarea'>) {
 }
 
 function Select({ className, ...props }: React.ComponentProps<'select'>) {
-  return <select data-slot="select" className={cn(fieldClasses, 'appearance-none bg-[right_0.75rem_center] bg-no-repeat pr-9', className)} {...props} />
+  return <select data-slot="select" className={cn(fieldClasses, className)} {...props} />
 }
 
 function Label({ className, ...props }: React.ComponentProps<'label'>) {

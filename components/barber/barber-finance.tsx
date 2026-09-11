@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Plus, Receipt } from 'lucide-react'
 import { EmptyState } from '@/components/ui/empty-state'
+import { Input, Select } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsList, TabsTab } from '@/components/ui/tabs'
 import { useToast } from '@/components/ui/toast'
@@ -66,13 +67,13 @@ export function BarberFinance({ finances, onFinancesChange, loading }: Props) {
       </div>
 
       <form onSubmit={addFinanceEntry} className="mt-6 grid gap-3 rounded-xl border border-border bg-background p-4 sm:grid-cols-[110px_1fr_1fr_120px_auto]">
-        <select value={entryType} onChange={(e) => setEntryType(e.target.value as 'income' | 'expense')} aria-label="Tipo" className="rounded-lg border border-input bg-background px-3 py-2.5 text-sm outline-none">
+        <Select value={entryType} onChange={(e) => setEntryType(e.target.value as 'income' | 'expense')} aria-label="Tipo">
           <option value="expense">Despesa</option>
           <option value="income">Receita</option>
-        </select>
-        <input value={entryCategory} onChange={(e) => setEntryCategory(e.target.value)} placeholder="Categoria (ex.: Aluguel)" aria-label="Categoria" className="rounded-lg border border-input bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring" />
-        <input value={entryDescription} onChange={(e) => setEntryDescription(e.target.value)} placeholder="Descrição (opcional)" aria-label="Descrição" className="rounded-lg border border-input bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring" />
-        <input value={entryAmount} onChange={(e) => setEntryAmount(e.target.value)} placeholder="Valor (R$)" inputMode="decimal" aria-label="Valor" className="rounded-lg border border-input bg-background px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring" />
+        </Select>
+        <Input value={entryCategory} onChange={(e) => setEntryCategory(e.target.value)} placeholder="Categoria (ex.: Aluguel)" aria-label="Categoria" />
+        <Input value={entryDescription} onChange={(e) => setEntryDescription(e.target.value)} placeholder="Descrição (opcional)" aria-label="Descrição" />
+        <Input value={entryAmount} onChange={(e) => setEntryAmount(e.target.value)} placeholder="Valor (R$)" inputMode="decimal" aria-label="Valor" />
         <button type="submit" disabled={submittingEntry} className="flex items-center justify-center gap-1.5 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-50"><Plus size={16} />{submittingEntry ? 'Lançando...' : 'Lançar'}</button>
       </form>
 
