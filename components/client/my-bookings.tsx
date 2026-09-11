@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { CalendarX2, CheckCircle2, X, XCircle } from 'lucide-react'
+import { AlertTriangle, CalendarX2, CheckCircle2, X, XCircle } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
@@ -32,12 +32,17 @@ function BookingRow({ booking, onCancel, cancelling, highlight }: { booking: MyB
 export function MyBookings() {
   const [bookings, setBookings] = useState<MyBooking[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [cancelling, setCancelling] = useState<string | null>(null)
   const [confirmingId, setConfirmingId] = useState<string | null>(null)
   const toast = useToast()
 
   const load = useCallback(() => {
-    apiClient.listMyBookings().then((r) => { setLoading(false); if (r.data) setBookings(r.data) })
+    apiClient.listMyBookings().then((r) => {
+      setLoading(false)
+      setLoadError(r.error)
+      if (r.data) setBookings(r.data)
+    })
   }, [])
 
   useEffect(() => { load() }, [load])
@@ -67,6 +72,10 @@ export function MyBookings() {
         <Skeleton className="h-20 w-full" />
       </div>
     )
+  }
+
+  if (loadError && bookings.length === 0) {
+    return <EmptyState icon={AlertTriangle} title="Não foi possível carregar seus agendamentos." description={loadError} />
   }
 
   return (

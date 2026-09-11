@@ -37,6 +37,8 @@ export function BookingModal({ barber, onClose }: Props) {
   const [scheduledAt, setScheduledAt] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [servicesError, setServicesError] = useState<string | null>(null)
+  const [slotsError, setSlotsError] = useState<string | null>(null)
   const [done, setDone] = useState(false)
 
   const days = upcomingDays()
@@ -44,7 +46,7 @@ export function BookingModal({ barber, onClose }: Props) {
 
   useEffect(() => {
     let active = true
-    apiClient.listBarberServices(barber.id).then((res) => { if (active) setServices(res.data ?? []) })
+    apiClient.listBarberServices(barber.id).then((res) => { if (active) { setServices(res.data ?? []); setServicesError(res.error) } })
     return () => { active = false }
   }, [barber.id])
 
@@ -57,6 +59,7 @@ export function BookingModal({ barber, onClose }: Props) {
       if (!active) return
       setLoadingSlots(false)
       setSlots(res.data?.slots ?? [])
+      setSlotsError(res.error)
     })
     return () => { active = false }
   }, [barber.id, serviceId, selectedDay])
@@ -92,7 +95,9 @@ export function BookingModal({ barber, onClose }: Props) {
             <div className="mt-6">
               <p className="text-sm font-medium">Serviço</p>
               <div className="mt-3 grid gap-2">
-                {services.length === 0 && <EmptyState title="Este barbeiro ainda não cadastrou serviços." />}
+                {services.length === 0 && (
+                  <EmptyState title={servicesError ? 'Não foi possível carregar os serviços.' : 'Este barbeiro ainda não cadastrou serviços.'} description={servicesError ?? undefined} />
+                )}
                 {services.map((service) => (
                   <button key={service.id} type="button" onClick={() => setServiceId(service.id)} className={`flex items-center justify-between gap-2 rounded-xl border p-3 text-left text-sm ${serviceId === service.id ? 'border-primary bg-primary/10 ring-1 ring-primary' : 'border-border hover:border-primary/50'}`}>
                     <span className="font-medium">{service.name}</span>
@@ -120,7 +125,11 @@ export function BookingModal({ barber, onClose }: Props) {
               <p className="text-sm font-medium">Horário</p>
               {!serviceId && <p className="mt-3 rounded-xl border border-dashed border-border p-4 text-center text-sm text-muted-foreground">Escolha um serviço para ver os horários.</p>}
               {serviceId && loadingSlots && <p className="mt-3 rounded-xl border border-dashed border-border p-4 text-center text-sm text-muted-foreground">Carregando horários...</p>}
-              {serviceId && !loadingSlots && slots.length === 0 && <p className="mt-3 rounded-xl border border-dashed border-border p-4 text-center text-sm text-muted-foreground">Nenhum horário disponível neste dia.</p>}
+              {serviceId && !loadingSlots && slots.length === 0 && (
+                <p className="mt-3 rounded-xl border border-dashed border-border p-4 text-center text-sm text-muted-foreground">
+                  {slotsError ? `Não foi possível carregar os horários: ${slotsError}` : 'Nenhum horário disponível neste dia.'}
+                </p>
+              )}
               {serviceId && !loadingSlots && slots.length > 0 && (
                 <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4">
                   {slots.map((slot) => (

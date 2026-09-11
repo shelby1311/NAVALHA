@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ChevronRight, MapPin, Search, SearchX } from 'lucide-react'
+import { AlertTriangle, ChevronRight, MapPin, Search, SearchX } from 'lucide-react'
 import { BookingModal } from '@/components/navalha/booking-modal'
 import { Card } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
@@ -19,6 +19,7 @@ export function ClientHome({ profile }: { profile: UserProfile | null }) {
   const [online, setOnline] = useState(true)
   const [barbers, setBarbers] = useState<Barber[]>([])
   const [loading, setLoading] = useState(true)
+  const [searchError, setSearchError] = useState<string | null>(null)
   const [selected, setSelected] = useState<Barber | null>(null)
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null)
 
@@ -42,6 +43,7 @@ export function ClientHome({ profile }: { profile: UserProfile | null }) {
     apiClient.searchBarbers({ q: debouncedQuery || undefined, onlyOnline: online, lat: coords?.lat, lng: coords?.lng }).then((res) => {
       if (!active) return
       setLoading(false)
+      setSearchError(res.error)
       setBarbers((res.data ?? []).map((b) => ({
         id: b.id,
         name: b.businessName || b.name,
@@ -88,12 +90,12 @@ export function ClientHome({ profile }: { profile: UserProfile | null }) {
             <MyBookings />
           </TabsPanel>
           <TabsPanel value="search" className="mt-6 space-y-6">
-            <SearchResults filtered={filtered} loading={loading} online={online} onSelect={setSelected} />
+            <SearchResults filtered={filtered} loading={loading} online={online} error={searchError} onSelect={setSelected} />
           </TabsPanel>
         </Tabs>
       ) : (
         <div className="space-y-6">
-          <SearchResults filtered={filtered} loading={loading} online={online} onSelect={setSelected} />
+          <SearchResults filtered={filtered} loading={loading} online={online} error={searchError} onSelect={setSelected} />
         </div>
       )}
 
@@ -102,7 +104,7 @@ export function ClientHome({ profile }: { profile: UserProfile | null }) {
   )
 }
 
-function SearchResults({ filtered, loading, online, onSelect }: { filtered: Barber[]; loading: boolean; online: boolean; onSelect: (barber: Barber) => void }) {
+function SearchResults({ filtered, loading, online, error, onSelect }: { filtered: Barber[]; loading: boolean; online: boolean; error: string | null; onSelect: (barber: Barber) => void }) {
   return (
     <>
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -117,6 +119,8 @@ function SearchResults({ filtered, loading, online, onSelect }: { filtered: Barb
           <Skeleton className="h-32 w-full" />
           <Skeleton className="h-32 w-full" />
         </section>
+      ) : error ? (
+        <EmptyState icon={AlertTriangle} title="Não foi possível buscar barbeiros agora." description={error} />
       ) : filtered.length === 0 ? (
         <EmptyState
           icon={SearchX}

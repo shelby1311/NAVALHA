@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { CalendarDays, Check, DollarSign, Settings2, Users, Wallet, type LucideIcon } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { useToast } from '@/components/ui/toast'
@@ -19,14 +19,24 @@ export function BarberHome({ onSettings, profile }: { onSettings: () => void; pr
   const [finances, setFinances] = useState<FinancialEntry[]>([])
   const [updating, setUpdating] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const isFirstLoad = useRef(true)
   const toast = useToast()
 
   const load = useCallback(() => {
     Promise.all([
-      apiClient.listServices().then((r) => r.data && setServices(r.data)),
-      apiClient.listBookings().then((r) => r.data && setBookings(r.data)),
-      apiClient.listFinances().then((r) => r.data && setFinances(r.data)),
-    ]).finally(() => setLoading(false))
+      apiClient.listServices().then((r) => { if (r.data) setServices(r.data); return r.error }),
+      apiClient.listBookings().then((r) => { if (r.data) setBookings(r.data); return r.error }),
+      apiClient.listFinances().then((r) => { if (r.data) setFinances(r.data); return r.error }),
+    ]).then((errors) => {
+      // Só avisa na primeira carga: falhas de poll seguintes ficam silenciosas
+      // enquanto ainda houver dado bom na tela (evita spam de toast a cada 5s).
+      if (isFirstLoad.current) {
+        const firstError = errors.find((e) => e != null)
+        if (firstError) toast.add({ type: 'error', title: 'Não foi possível carregar seu painel', description: firstError })
+        isFirstLoad.current = false
+      }
+    }).finally(() => setLoading(false))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => { load() }, [load])
