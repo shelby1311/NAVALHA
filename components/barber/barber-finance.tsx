@@ -1,18 +1,29 @@
 import { useMemo, useState } from 'react'
-import { Plus } from 'lucide-react'
+import { Plus, Receipt } from 'lucide-react'
+import { EmptyState } from '@/components/ui/empty-state'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Tabs, TabsList, TabsTab } from '@/components/ui/tabs'
+import { useToast } from '@/components/ui/toast'
 import { apiClient } from '@/lib/api-client'
 import { centsToMoney, type FinancialEntry } from '@/lib/contracts'
 import { isCurrentMonth, isLast7Days, isToday } from '@/lib/ui'
 
-type Props = { finances: FinancialEntry[]; onFinancesChange: React.Dispatch<React.SetStateAction<FinancialEntry[]>> }
+type Props = { finances: FinancialEntry[]; onFinancesChange: React.Dispatch<React.SetStateAction<FinancialEntry[]>>; loading: boolean }
 
-export function BarberFinance({ finances, onFinancesChange }: Props) {
+const PERIODS = [
+  { key: 'today', label: 'Hoje' },
+  { key: 'week', label: '7 dias' },
+  { key: 'month', label: 'Mês' },
+] as const
+
+export function BarberFinance({ finances, onFinancesChange, loading }: Props) {
   const [financePeriod, setFinancePeriod] = useState<'today' | 'week' | 'month'>('month')
   const [entryType, setEntryType] = useState<'income' | 'expense'>('expense')
   const [entryCategory, setEntryCategory] = useState('')
   const [entryDescription, setEntryDescription] = useState('')
   const [entryAmount, setEntryAmount] = useState('')
   const [submittingEntry, setSubmittingEntry] = useState(false)
+  const toast = useToast()
 
   const periodFilter = financePeriod === 'today' ? isToday : financePeriod === 'week' ? isLast7Days : isCurrentMonth
   const periodEntries = useMemo(
@@ -30,7 +41,8 @@ export function BarberFinance({ finances, onFinancesChange }: Props) {
     setSubmittingEntry(true)
     const result = await apiClient.createFinanceEntry({ type: entryType, category: entryCategory.trim(), description: entryDescription.trim(), amountCents })
     setSubmittingEntry(false)
-    if (result.data) { onFinancesChange((f) => [result.data as FinancialEntry, ...f]); setEntryCategory(''); setEntryDescription(''); setEntryAmount('') }
+    if (result.data) { onFinancesChange((f) => [result.data as FinancialEntry, ...f]); setEntryCategory(''); setEntryDescription(''); setEntryAmount(''); toast.add({ type: 'success', title: 'Lançamento registrado' }) }
+    else if (result.error) toast.add({ type: 'error', title: 'Não foi possível lançar', description: result.error })
   }
 
   return (
@@ -40,11 +52,11 @@ export function BarberFinance({ finances, onFinancesChange }: Props) {
           <h2 className="font-semibold">Financeiro</h2>
           <p className="mt-1 text-sm text-muted-foreground">Receitas (geradas automaticamente ao concluir um atendimento) e despesas.</p>
         </div>
-        <div className="flex gap-1 rounded-xl border border-border bg-background p-1">
-          {([['today', 'Hoje'], ['week', '7 dias'], ['month', 'Mês']] as const).map(([key, label]) => (
-            <button key={key} onClick={() => setFinancePeriod(key)} className={`rounded-lg px-3 py-1.5 text-xs font-medium ${financePeriod === key ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}`}>{label}</button>
-          ))}
-        </div>
+        <Tabs value={financePeriod} onValueChange={(v) => setFinancePeriod(v as typeof financePeriod)}>
+          <TabsList>
+            {PERIODS.map(({ key, label }) => <TabsTab key={key} value={key}>{label}</TabsTab>)}
+          </TabsList>
+        </Tabs>
       </div>
 
       <div className="mt-5 grid gap-3 sm:grid-cols-3">
@@ -65,16 +77,26 @@ export function BarberFinance({ finances, onFinancesChange }: Props) {
       </form>
 
       <div className="mt-6 divide-y divide-border">
-        {periodEntries.length === 0 && <p className="py-6 text-center text-sm text-muted-foreground">Nenhum lançamento neste período.</p>}
-        {periodEntries.map((entry) => (
-          <div key={entry.id} className="flex flex-wrap items-center gap-3 py-3">
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium">{entry.category}{entry.description ? ` · ${entry.description}` : ''}</p>
-              <p className="mt-0.5 text-xs text-muted-foreground">{new Date(entry.entryDate).toLocaleDateString('pt-BR')}</p>
-            </div>
-            <span className={`text-sm font-semibold ${entry.type === 'income' ? 'text-emerald-400' : 'text-destructive'}`}>{entry.type === 'income' ? '+' : '-'}{centsToMoney(entry.amountCents)}</span>
+        {loading ? (
+          <div className="space-y-3 py-4">
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
           </div>
-        ))}
+        ) : periodEntries.length === 0 ? (
+          <div className="py-6">
+            <EmptyState icon={Receipt} title="Nenhum lançamento neste período." description="Receitas de atendimentos concluídos e despesas manuais aparecem aqui." />
+          </div>
+        ) : (
+          periodEntries.map((entry) => (
+            <div key={entry.id} className="flex flex-wrap items-center gap-3 py-3">
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium">{entry.category}{entry.description ? ` · ${entry.description}` : ''}</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">{new Date(entry.entryDate).toLocaleDateString('pt-BR')}</p>
+              </div>
+              <span className={`text-sm font-semibold ${entry.type === 'income' ? 'text-emerald-400' : 'text-destructive'}`}>{entry.type === 'income' ? '+' : '-'}{centsToMoney(entry.amountCents)}</span>
+            </div>
+          ))
+        )}
       </div>
     </>
   )

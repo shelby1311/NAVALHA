@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { CalendarDays, Check, DollarSign, Settings2, Users, Wallet, type LucideIcon } from 'lucide-react'
+import { Card } from '@/components/ui/card'
+import { useToast } from '@/components/ui/toast'
 import { apiClient } from '@/lib/api-client'
 import { centsToMoney, type BarberService, type BookingStatus, type BookingWithDetails, type FinancialEntry, type UserProfile } from '@/lib/contracts'
 import { isCurrentMonth, isToday, POLL_INTERVAL_MS, usePolling } from '@/lib/ui'
@@ -16,11 +18,15 @@ export function BarberHome({ onSettings, profile }: { onSettings: () => void; pr
   const [bookings, setBookings] = useState<BookingWithDetails[]>([])
   const [finances, setFinances] = useState<FinancialEntry[]>([])
   const [updating, setUpdating] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+  const toast = useToast()
 
   const load = useCallback(() => {
-    apiClient.listServices().then((r) => r.data && setServices(r.data))
-    apiClient.listBookings().then((r) => r.data && setBookings(r.data))
-    apiClient.listFinances().then((r) => r.data && setFinances(r.data))
+    Promise.all([
+      apiClient.listServices().then((r) => r.data && setServices(r.data)),
+      apiClient.listBookings().then((r) => r.data && setBookings(r.data)),
+      apiClient.listFinances().then((r) => r.data && setFinances(r.data)),
+    ]).finally(() => setLoading(false))
   }, [])
 
   useEffect(() => { load() }, [load])
@@ -42,6 +48,8 @@ export function BarberHome({ onSettings, profile }: { onSettings: () => void; pr
     if (result.data) {
       const nextStatus = result.data.status
       setBookings((bs) => bs.map((b) => (b.id === id ? { ...b, status: nextStatus } : b)))
+    } else if (result.error) {
+      toast.add({ type: 'error', title: 'Não foi possível atualizar o agendamento', description: result.error })
     }
   }
 
@@ -66,7 +74,7 @@ export function BarberHome({ onSettings, profile }: { onSettings: () => void; pr
       <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Painel da barbearia</p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">Bom dia, {profile.name.split(' ')[0]}.</h1>
+          <h1 className="mt-2 font-serif text-3xl font-semibold tracking-tight sm:text-4xl">Bom dia, {profile.name.split(' ')[0]}.</h1>
           <p className="mt-2 text-sm text-muted-foreground">Sua operação em um só lugar.</p>
         </div>
         <button onClick={onSettings} className="flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-3 text-sm"><Settings2 size={16} /> Configurações</button>
@@ -74,14 +82,14 @@ export function BarberHome({ onSettings, profile }: { onSettings: () => void; pr
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map(({ label, value, detail, Icon }) => (
-          <article key={label} className="rounded-2xl border border-border bg-card p-5">
+          <Card key={label} className="p-5">
             <div className="flex items-center justify-between">
               <p className="text-xs text-muted-foreground">{label}</p>
               <span className="rounded-lg bg-primary/10 p-2 text-primary"><Icon size={16} /></span>
             </div>
             <p className="mt-5 text-2xl font-semibold tracking-tight">{value}</p>
             <p className="mt-1 text-xs text-muted-foreground">{detail}</p>
-          </article>
+          </Card>
         ))}
       </div>
 
@@ -96,10 +104,10 @@ export function BarberHome({ onSettings, profile }: { onSettings: () => void; pr
         </aside>
 
         <section className="rounded-2xl border border-border bg-card p-5 sm:p-6">
-          {section === 'overview' && <BarberOverview todayBookings={todayBookings} updating={updating} onChangeStatus={changeStatus} />}
-          {section === 'queue' && <BarberQueue queue={queue} updating={updating} onChangeStatus={changeStatus} />}
-          {section === 'services' && <BarberServices services={services} onServicesChange={setServices} />}
-          {section === 'finance' && <BarberFinance finances={finances} onFinancesChange={setFinances} />}
+          {section === 'overview' && <BarberOverview todayBookings={todayBookings} updating={updating} onChangeStatus={changeStatus} loading={loading} />}
+          {section === 'queue' && <BarberQueue queue={queue} updating={updating} onChangeStatus={changeStatus} loading={loading} />}
+          {section === 'services' && <BarberServices services={services} onServicesChange={setServices} loading={loading} />}
+          {section === 'finance' && <BarberFinance finances={finances} onFinancesChange={setFinances} loading={loading} />}
         </section>
       </div>
     </div>
