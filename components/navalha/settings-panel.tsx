@@ -27,6 +27,9 @@ export function SettingsPanel({ profile, open, onClose, onSaved }: Props) {
   const toast = useToast()
   const router = useRouter()
 
+  // Reinicia o rascunho ao reabrir — o Dialog fica montado entre aberturas (precisa
+  // pra animação de fechar), então não dá pra resetar via `key` no lugar do effect.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { if (open) { setDraft(profile); setPreview(profile.avatarUrl); setAvatarFile(null) } }, [open, profile])
 
   function update<K extends keyof UserProfile>(key: K, value: UserProfile[K]) {

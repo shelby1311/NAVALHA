@@ -82,7 +82,6 @@ export function usePolling(load: () => void, intervalMs: number) {
     if (!document.hidden) start()
     document.addEventListener('visibilitychange', onVisibilityChange)
     return () => { stop(); document.removeEventListener('visibilitychange', onVisibilityChange) }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [load, intervalMs])
 }
 

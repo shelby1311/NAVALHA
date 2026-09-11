@@ -40,10 +40,9 @@ export default function Page() {
   const isBarber = profile?.role === 'barber'
 
   // Um cliente autenticado (ou visitante) não tem painel de barbearia — evita
-  // que a UI ofereça uma aba que só devolveria 403 nas chamadas de API.
-  useEffect(() => {
-    if (!isBarber && mode === 'barber') setMode('client')
-  }, [isBarber, mode])
+  // que a UI ofereça uma aba que só devolveria 403 nas chamadas de API. Derivado
+  // no render (não via effect+setState) para não disparar uma renderização extra.
+  const effectiveMode = isBarber ? mode : 'client'
 
   return (
     <main className="min-h-screen bg-background text-foreground">
@@ -51,11 +50,11 @@ export default function Page() {
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3">
           <Logo />
           <div className="order-3 flex w-full items-center gap-1 overflow-x-auto rounded-xl border border-border bg-card p-1 md:order-none md:w-auto">
-            <button onClick={() => setMode('client')} aria-current={mode === 'client' ? 'page' : undefined} className={`whitespace-nowrap rounded-lg px-4 py-2 text-xs font-medium ${mode === 'client' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}`}>Encontrar barbeiro</button>
-            {isBarber && <button onClick={() => setMode('barber')} aria-current={mode === 'barber' ? 'page' : undefined} className={`whitespace-nowrap rounded-lg px-4 py-2 text-xs font-medium ${mode === 'barber' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}`}>Minha barbearia</button>}
+            <button onClick={() => setMode('client')} aria-current={effectiveMode === 'client' ? 'page' : undefined} className={`whitespace-nowrap rounded-lg px-4 py-2 text-xs font-medium ${effectiveMode === 'client' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}`}>Encontrar barbeiro</button>
+            {isBarber && <button onClick={() => setMode('barber')} aria-current={effectiveMode === 'barber' ? 'page' : undefined} className={`whitespace-nowrap rounded-lg px-4 py-2 text-xs font-medium ${effectiveMode === 'barber' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}`}>Minha barbearia</button>}
           </div>
           <div className="flex items-center gap-2">
-            <span className="hidden text-xs text-muted-foreground sm:inline">{mode === 'client' ? 'Acesso gratuito' : 'Painel profissional'}</span>
+            <span className="hidden text-xs text-muted-foreground sm:inline">{effectiveMode === 'client' ? 'Acesso gratuito' : 'Painel profissional'}</span>
             {profile ? (
               <button onClick={() => setSettingsOpen(true)} aria-label="Abrir configurações" className="grid size-10 place-items-center rounded-xl border border-border bg-card text-muted-foreground hover:text-foreground"><Settings2 size={17} /></button>
             ) : !loadingProfile && (
@@ -66,7 +65,7 @@ export default function Page() {
         </div>
       </header>
       <div className="px-4 py-6 sm:px-6 lg:px-10 lg:py-10">
-        {mode === 'client' ? <ClientHome profile={profile} /> : isBarber && profile && <BarberHome onSettings={() => setSettingsOpen(true)} profile={profile} />}
+        {effectiveMode === 'client' ? <ClientHome profile={profile} /> : profile && <BarberHome onSettings={() => setSettingsOpen(true)} profile={profile} />}
       </div>
       {profile && <SettingsPanel profile={profile} open={settingsOpen} onClose={() => setSettingsOpen(false)} onSaved={(next) => { setProfile(next); setSettingsOpen(false) }} />}
       <MobileMenu open={mobileMenuOpen} onOpenChange={setMobileMenuOpen} profile={profile} onOpenSettings={() => setSettingsOpen(true)} />

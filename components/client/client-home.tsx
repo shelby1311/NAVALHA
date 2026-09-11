@@ -39,6 +39,7 @@ export function ClientHome({ profile }: { profile: UserProfile | null }) {
 
   useEffect(() => {
     let active = true
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- flag de loading do próprio fetch abaixo, não deriva de outro estado.
     setLoading(true)
     apiClient.searchBarbers({ q: debouncedQuery || undefined, onlyOnline: online, lat: coords?.lat, lng: coords?.lng }).then((res) => {
       if (!active) return

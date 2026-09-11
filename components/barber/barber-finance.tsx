@@ -27,11 +27,10 @@ export function BarberFinance({ finances, onFinancesChange, loading }: Props) {
   const [submittingEntry, setSubmittingEntry] = useState(false)
   const toast = useToast()
 
-  const periodFilter = financePeriod === 'today' ? isToday : financePeriod === 'week' ? isLast7Days : isCurrentMonth
-  const periodEntries = useMemo(
-    () => finances.filter((e) => periodFilter(e.entryDate)).sort((a, b) => b.entryDate.localeCompare(a.entryDate)),
-    [finances, financePeriod],
-  )
+  const periodEntries = useMemo(() => {
+    const periodFilter = financePeriod === 'today' ? isToday : financePeriod === 'week' ? isLast7Days : isCurrentMonth
+    return finances.filter((e) => periodFilter(e.entryDate)).sort((a, b) => b.entryDate.localeCompare(a.entryDate))
+  }, [finances, financePeriod])
   const periodIncome = periodEntries.filter((e) => e.type === 'income').reduce((acc, e) => acc + e.amountCents, 0)
   const periodExpense = periodEntries.filter((e) => e.type === 'expense').reduce((acc, e) => acc + e.amountCents, 0)
 

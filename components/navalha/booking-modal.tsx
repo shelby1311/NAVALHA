@@ -51,6 +51,7 @@ export function BookingModal({ barber, onClose }: Props) {
   }, [barber.id])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset de horários ao trocar/limpar o serviço selecionado, não um loop.
     if (!serviceId) { setSlots([]); return }
     let active = true
     setLoadingSlots(true)
