@@ -28,7 +28,7 @@ Este README serve dois propósitos:
 
 ```
 app/
-  page.tsx                     # página única (SPA-like): alterna client/barbeiro no client-side
+  page.tsx                     # orquestrador (SPA-like): perfil, header, troca client/barbeiro, overlays
   cadastro/page.tsx            # criação de conta (escolhe papel client/barbeiro)
   entrar/page.tsx              # login
   api/
@@ -49,22 +49,36 @@ app/
     profile/preferences/route.ts    # PATCH — tema/notificações/status online
 
 components/
-  navalha/booking-modal.tsx    # modal de agendamento (cliente escolhe serviço, dia e horário real)
-  navalha/settings-panel.tsx   # painel de configurações do perfil (foto, dados, horário de funcionamento)
-  ui/button.tsx                # componente shadcn
+  navalha/logo.tsx             # wordmark "navalha." (prop `size`) — usado em page/mobile-menu/cadastro/entrar
+  navalha/booking-modal.tsx    # modal de agendamento (Dialog do design system + resumo antes de confirmar)
+  navalha/settings-panel.tsx   # configurações por categorias (Perfil/Agenda/Aparência/Notificações/Conta)
+  navalha/mobile-menu.tsx      # menu de conta mobile (Drawer): configurações e sair
+  client/client-home.tsx       # busca de barbeiros + toggle "meus agendamentos"
+  client/my-bookings.tsx       # próximos agendamentos + histórico do cliente
+  barber/barber-home.tsx       # orquestrador do painel do barbeiro (stats + navegação por seção)
+  barber/barber-overview.tsx   # agenda de hoje
+  barber/barber-queue.tsx      # fila em tempo real
+  barber/barber-services.tsx   # CRUD de serviços/preços
+  barber/barber-finance.tsx    # receita/despesa/saldo por período
+  barber/booking-actions.tsx   # botões de transição de status + confirmação de cancelamento
+  ui/                          # design system: Card, Badge, Input/Select/Textarea, Switch, Tabs,
+                                # Dialog, ConfirmDialog, Toast, Skeleton, EmptyState, Button
+                                # (Dialog/Switch/Tabs/ConfirmDialog/Toast usam @base-ui/react)
 
 lib/
   schema.ts                    # schema Drizzle (única fonte de verdade do banco)
   db.ts                        # pool de conexão Postgres + instância Drizzle
   auth.ts                      # configuração do better-auth (campos extras de usuário, etc.)
-  auth-api.ts                  # client-side: chama os endpoints REST do better-auth
+  auth-api.ts                  # client-side: chama os endpoints REST do better-auth (inclui signOut)
   authz.ts                     # requireUser / requireRole — autenticação separada de autorização
   business-hours.ts            # janela de funcionamento do barbeiro (janelaDoDia/estaDentroDoHorario/terminaDentroDoHorario)
   timezone.ts                  # fuso fixo do negócio (America/Sao_Paulo) — independente do fuso do processo Node
+  theme.ts                     # tema dark/light/system: aplica no <html>, cacheia em localStorage, script anti-flash
   geocode.ts                   # geocodeAddress() (Nominatim) + haversineKm() para busca por distância
   contracts.ts                 # tipos compartilhados front/back + helpers (ex.: centsToMoney)
   api-client.ts                # client-side: wrapper de fetch para as rotas /api/*
   profile.ts                   # toProfile() — normaliza a linha do banco para UserProfile
+  ui.ts                        # helpers de view compartilhados (initials, statusLabel, usePolling, actionsFor...)
   business-hours.test.ts
   timezone.test.ts
   domain/
@@ -288,6 +302,15 @@ O pedido original tinha 10 itens de produto (agendamento/segurança/financeiro, 
 - `POST /api/bookings` passou a validar também o **fim** do serviço contra o expediente (só o início era checado).
 - Histórico do cliente mostra o preço realmente cobrado (`financial_entry`), não o preço atual do serviço.
 - Timeout no Nominatim, escape de wildcards ILIKE, proteção contra duplo clique em dois formulários do painel do barbeiro.
+
+**Redesign de UI/UX (auditoria de produto: seletor de tema, menu mobile e ações decorativas encontradas sem efeito):**
+- Design system em `components/ui/` (Card, Badge, Input/Select/Textarea, Switch, Tabs, Dialog, ConfirmDialog, Toast, Skeleton, EmptyState) — Dialog/Switch/Tabs/ConfirmDialog/Toast usam `@base-ui/react` (já era dependência) em vez de reimplementar foco/ESC/clique-fora na mão.
+- Tema dark/light/system corrigido: salvava a preferência mas a UI ficava sempre escura; agora `lib/theme.ts` aplica de verdade, com script anti-flash e sincronização com o perfil salvo.
+- Menu mobile (hamburger) era decorativo — agora abre um Drawer com Configurações e **Sair da conta**, que não existia em nenhum lugar da UI antes disso.
+- `app/page.tsx` (637 linhas) dividido em `components/client/*` e `components/barber/*`; helpers de view compartilhados em `lib/ui.ts`.
+- Ações destrutivas (cancelar agendamento, do lado cliente e barbeiro) ganham `ConfirmDialog`; mutações que falhavam em silêncio agora avisam por `Toast`.
+- Configurações reorganizada em categorias (Perfil/Agenda/Aparência/Notificações/Conta) em vez de uma tela única.
+- Playfair Display (carregada mas não usada) decidida como fonte de identidade nos títulos principais; wordmark duplicado 4x consolidado em `components/navalha/logo.tsx`; CSS morto (regras `nav`/`table` que não correspondiam a nenhum elemento do app) removido de `globals.css`.
 
 ### ✅ Testado (automatizado)
 
