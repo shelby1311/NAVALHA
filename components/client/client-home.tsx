@@ -1,6 +1,10 @@
 import { useEffect, useState } from 'react'
-import { ChevronRight, MapPin, Search } from 'lucide-react'
+import { ChevronRight, MapPin, Search, SearchX } from 'lucide-react'
 import { BookingModal } from '@/components/navalha/booking-modal'
+import { Card } from '@/components/ui/card'
+import { EmptyState } from '@/components/ui/empty-state'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Tabs, TabsList, TabsTab } from '@/components/ui/tabs'
 import { apiClient } from '@/lib/api-client'
 import type { UserProfile } from '@/lib/contracts'
 import { initials } from '@/lib/ui'
@@ -58,7 +62,7 @@ export function ClientHome({ profile }: { profile: UserProfile | null }) {
         <div className="flex flex-wrap items-end justify-between gap-5">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Navalha para clientes</p>
-            <h1 className="mt-3 max-w-2xl text-balance text-3xl font-semibold tracking-tight sm:text-5xl">Seu próximo corte está a poucos minutos.</h1>
+            <h1 className="mt-3 max-w-2xl text-balance font-serif text-3xl font-semibold tracking-tight sm:text-5xl">Seu próximo corte está a poucos minutos.</h1>
             <p className="mt-3 max-w-xl text-sm leading-6 text-muted-foreground">Encontre barbearias online perto de você e agende sem pagar nada.</p>
           </div>
           <div className="hidden rounded-2xl bg-primary/10 p-4 text-primary sm:block"><MapPin size={26} /></div>
@@ -75,10 +79,12 @@ export function ClientHome({ profile }: { profile: UserProfile | null }) {
       </section>
 
       {profile && (
-        <div className="flex w-full items-center gap-1 overflow-x-auto rounded-xl border border-border bg-card p-1 sm:w-fit">
-          <button onClick={() => setSection('search')} className={`whitespace-nowrap rounded-lg px-4 py-2 text-xs font-medium ${section === 'search' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}`}>Buscar barbeiros</button>
-          <button onClick={() => setSection('bookings')} className={`whitespace-nowrap rounded-lg px-4 py-2 text-xs font-medium ${section === 'bookings' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}`}>Meus agendamentos</button>
-        </div>
+        <Tabs value={section} onValueChange={(v) => setSection(v as typeof section)}>
+          <TabsList className="w-full sm:w-fit">
+            <TabsTab value="search">Buscar barbeiros</TabsTab>
+            <TabsTab value="bookings">Meus agendamentos</TabsTab>
+          </TabsList>
+        </Tabs>
       )}
 
       {section === 'bookings' && profile ? (
@@ -92,28 +98,38 @@ export function ClientHome({ profile }: { profile: UserProfile | null }) {
         </div>
       </div>
 
-      <section className="grid gap-4 lg:grid-cols-2">
-        {filtered.map((barber) => (
-          <article key={barber.id} className="rounded-2xl border border-border bg-card p-4 sm:p-5">
-            <div className="flex gap-4">
-              <div className="grid size-14 shrink-0 place-items-center rounded-2xl bg-primary/15 font-semibold text-primary">{barber.avatar}</div>
-              <div className="min-w-0 flex-1">
-                <h3 className="font-semibold">{barber.name}</h3>
-                <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground"><MapPin size={12} />{barber.place}{barber.distanceKm != null && ` · ${barber.distanceKm < 1 ? `${Math.round(barber.distanceKm * 1000)} m` : `${barber.distanceKm.toFixed(1)} km`}`}</p>
-                <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-                  <span className={`flex items-center gap-2 text-xs ${barber.online ? 'text-emerald-400' : 'text-muted-foreground'}`}>
-                    <span className="size-2 rounded-full bg-current" />{barber.online ? 'Livre agora' : 'Indisponível'}
-                  </span>
-                  <button onClick={() => setSelected(barber)} className="flex items-center gap-1 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground">Ver horários <ChevronRight size={14} /></button>
+      {loading ? (
+        <section className="grid gap-4 lg:grid-cols-2">
+          <Skeleton className="h-32 w-full" />
+          <Skeleton className="h-32 w-full" />
+        </section>
+      ) : filtered.length === 0 ? (
+        <EmptyState
+          icon={SearchX}
+          title="Nenhum barbeiro encontrado nessa região."
+          description={online ? 'Tente desativar o filtro "Online agora" ou busque por outra cidade/bairro.' : 'Tente buscar por outro nome, cidade ou bairro.'}
+        />
+      ) : (
+        <section className="grid gap-4 lg:grid-cols-2">
+          {filtered.map((barber) => (
+            <Card key={barber.id} className="p-4 sm:p-5">
+              <div className="flex gap-4">
+                <div className="grid size-14 shrink-0 place-items-center rounded-2xl bg-primary/15 font-semibold text-primary">{barber.avatar}</div>
+                <div className="min-w-0 flex-1">
+                  <h3 className="font-semibold">{barber.name}</h3>
+                  <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground"><MapPin size={12} />{barber.place}{barber.distanceKm != null && ` · ${barber.distanceKm < 1 ? `${Math.round(barber.distanceKm * 1000)} m` : `${barber.distanceKm.toFixed(1)} km`}`}</p>
+                  <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                    <span className={`flex items-center gap-2 text-xs ${barber.online ? 'text-emerald-400' : 'text-muted-foreground'}`}>
+                      <span className="size-2 rounded-full bg-current" />{barber.online ? 'Livre agora' : 'Indisponível'}
+                    </span>
+                    <button onClick={() => setSelected(barber)} className="flex items-center gap-1 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground">Ver horários <ChevronRight size={14} /></button>
+                  </div>
                 </div>
               </div>
-            </div>
-          </article>
-        ))}
-      </section>
-
-      {loading && <div className="rounded-2xl border border-dashed border-border p-10 text-center text-sm text-muted-foreground">Carregando barbeiros...</div>}
-      {!loading && filtered.length === 0 && <div className="rounded-2xl border border-dashed border-border p-10 text-center text-sm text-muted-foreground">Nenhum barbeiro online encontrado nessa região.</div>}
+            </Card>
+          ))}
+        </section>
+      )}
         </>
       )}
 

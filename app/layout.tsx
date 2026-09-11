@@ -1,6 +1,7 @@
 import { Analytics } from '@vercel/analytics/next'
 import type { Metadata, Viewport } from 'next'
 import { Inter, Playfair_Display } from 'next/font/google'
+import { Toaster, ToastProvider } from '@/components/ui/toast'
 import { THEME_INIT_SCRIPT } from '@/lib/theme'
 import './globals.css'
 
@@ -27,7 +28,10 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       <body className={`${inter.variable} ${playfair.variable} antialiased`}>
         {/* Roda antes da hidratação: aplica o tema salvo (localStorage) sem flash. */}
         <script suppressHydrationWarning dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
-        {children}
+        <ToastProvider>
+          {children}
+          <Toaster />
+        </ToastProvider>
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>
     </html>
