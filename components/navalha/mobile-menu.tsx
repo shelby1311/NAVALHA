@@ -3,9 +3,10 @@
 import { Drawer } from '@base-ui/react/drawer'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { LogOut, Scissors, Settings2, UserRound, X } from 'lucide-react'
+import { LogOut, Settings2, UserRound, X } from 'lucide-react'
 import type { UserProfile } from '@/lib/contracts'
 import { authApi } from '@/lib/auth-api'
+import { Logo } from './logo'
 
 type Props = { open: boolean; onOpenChange: (open: boolean) => void; profile: UserProfile | null; onOpenSettings: () => void }
 
@@ -27,7 +28,7 @@ export function MobileMenu({ open, onOpenChange, profile, onOpenSettings }: Prop
         <Drawer.Popup className="fixed inset-x-0 bottom-0 z-50 rounded-t-3xl border border-border bg-card p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-2xl transition-transform duration-200 data-[ending-style]:translate-y-full data-[starting-style]:translate-y-full">
           <div className="mx-auto mb-4 h-1.5 w-10 rounded-full bg-muted" />
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5 font-semibold"><span className="grid size-8 place-items-center rounded-lg bg-primary text-primary-foreground"><Scissors size={15} /></span>navalha<span className="text-primary">.</span></div>
+            <Logo size="sm" />
             <Drawer.Close aria-label="Fechar menu" className="rounded-lg p-2 text-muted-foreground hover:bg-muted"><X size={18} /></Drawer.Close>
           </div>
 

@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, Check, Scissors, UserRound } from 'lucide-react'
+import { Logo } from '@/components/navalha/logo'
 import { authApi } from '@/lib/auth-api'
 
 const roles = {
@@ -65,9 +66,9 @@ export default function CadastroPage() {
           <Link href="/" className="mb-12 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
             <ArrowLeft size={16} /> Voltar para a Navalha
           </Link>
-          <div className="mb-8 flex items-center gap-3"><span className="grid size-10 place-items-center rounded-xl bg-primary text-primary-foreground"><Scissors size={19} /></span><span className="text-2xl font-semibold">navalha<span className="text-primary">.</span></span></div>
+          <div className="mb-8"><Logo size="lg" /></div>
           <p className="text-xs uppercase tracking-[0.2em] text-primary">Comece agora</p>
-          <h1 className="mt-3 text-balance text-4xl font-semibold tracking-tight sm:text-5xl">Qual experiência combina com você?</h1>
+          <h1 className="mt-3 text-balance font-serif text-4xl font-semibold tracking-tight sm:text-5xl">Qual experiência combina com você?</h1>
           <p className="mt-5 max-w-lg text-base leading-7 text-muted-foreground">Escolha seu tipo de conta. Essa escolha define os recursos disponíveis para manter cada experiência simples e segura.</p>
         </section>
 

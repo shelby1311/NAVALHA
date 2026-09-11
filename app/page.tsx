@@ -2,24 +2,16 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { Menu, Scissors, Settings2 } from 'lucide-react'
+import { Menu, Settings2 } from 'lucide-react'
 import { BarberHome } from '@/components/barber/barber-home'
 import { ClientHome } from '@/components/client/client-home'
+import { Logo } from '@/components/navalha/logo'
 import { MobileMenu } from '@/components/navalha/mobile-menu'
 import { SettingsPanel } from '@/components/navalha/settings-panel'
 import type { UserProfile } from '@/lib/contracts'
 import { applyTheme } from '@/lib/theme'
 
 type ViewMode = 'client' | 'barber'
-
-function Logo() {
-  return (
-    <div className="flex items-center gap-2.5 font-semibold tracking-tight">
-      <span className="grid size-9 place-items-center rounded-xl bg-primary text-primary-foreground"><Scissors size={18} /></span>
-      <span className="text-xl">navalha<span className="text-primary">.</span></span>
-    </div>
-  )
-}
 
 export default function Page() {
   const [mode, setMode] = useState<ViewMode>('client')
