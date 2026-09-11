@@ -4,9 +4,11 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { CalendarDays, Check, ChevronRight, Clock3, DollarSign, MapPin, Menu, Plus, Scissors, Search, Settings2, Users, Wallet, X, type LucideIcon } from 'lucide-react'
 import { BookingModal } from '@/components/navalha/booking-modal'
+import { MobileMenu } from '@/components/navalha/mobile-menu'
 import { SettingsPanel } from '@/components/navalha/settings-panel'
 import { apiClient } from '@/lib/api-client'
 import { centsToMoney, type BarberService, type BookingStatus, type BookingWithDetails, type FinancialEntry, type MyBooking, type UserProfile } from '@/lib/contracts'
+import { applyTheme } from '@/lib/theme'
 
 type ViewMode = 'client' | 'barber'
 const POLL_INTERVAL_MS = 5000
@@ -585,6 +587,7 @@ export default function Page() {
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [loadingProfile, setLoadingProfile] = useState(true)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   useEffect(() => {
     let active = true
@@ -594,6 +597,9 @@ export default function Page() {
         if (!res.ok) { setProfile(null); return }
         const data = await res.json()
         setProfile(data)
+        // Sincroniza com o tema salvo na conta (fonte de verdade), ex.: primeiro
+        // acesso neste dispositivo ou tema trocado em outro.
+        applyTheme(data.theme)
       })
       .catch(() => { if (active) setProfile(null) })
       .finally(() => { if (active) setLoadingProfile(false) })
@@ -624,7 +630,7 @@ export default function Page() {
             ) : !loadingProfile && (
               <Link href="/entrar" className="whitespace-nowrap rounded-xl border border-border bg-card px-4 py-2.5 text-xs font-medium text-muted-foreground hover:text-foreground">Entrar</Link>
             )}
-            <button aria-label="Abrir menu" className="rounded-lg p-2 md:hidden"><Menu size={19} /></button>
+            <button onClick={() => setMobileMenuOpen(true)} aria-label="Abrir menu" className="rounded-lg p-2 text-muted-foreground hover:text-foreground md:hidden"><Menu size={19} /></button>
           </div>
         </div>
       </header>
@@ -632,6 +638,7 @@ export default function Page() {
         {mode === 'client' ? <ClientHome profile={profile} /> : isBarber && profile && <BarberHome onSettings={() => setSettingsOpen(true)} profile={profile} />}
       </div>
       {profile && <SettingsPanel profile={profile} open={settingsOpen} onClose={() => setSettingsOpen(false)} onSaved={(next) => { setProfile(next); setSettingsOpen(false) }} />}
+      <MobileMenu open={mobileMenuOpen} onOpenChange={setMobileMenuOpen} profile={profile} onOpenSettings={() => setSettingsOpen(true)} />
     </main>
   )
 }

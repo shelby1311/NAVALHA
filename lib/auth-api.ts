@@ -34,4 +34,6 @@ export const authApi = {
   }) => post('/api/auth/signup', payload),
 
   signInEmail: (payload: { email: string; password: string }) => post('/api/auth/sign-in/email', payload),
+
+  signOut: () => post('/api/auth/sign-out', {}),
 }

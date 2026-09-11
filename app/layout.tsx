@@ -1,6 +1,7 @@
 import { Analytics } from '@vercel/analytics/next'
 import type { Metadata, Viewport } from 'next'
 import { Inter, Playfair_Display } from 'next/font/google'
+import { THEME_INIT_SCRIPT } from '@/lib/theme'
 import './globals.css'
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
@@ -13,11 +14,22 @@ export const metadata: Metadata = {
 }
 
 export const viewport: Viewport = {
-  colorScheme: 'dark',
+  // 'dark light': deixa o browser adaptar a UI nativa (scrollbar, controles) ao
+  // color-scheme que o CSS realmente aplica por tema, em vez de travar em 'dark'.
+  colorScheme: 'dark light',
   themeColor: '#17181d',
   viewportFit: 'cover',
 }
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="pt-BR" className="bg-background"><body className={`${inter.variable} ${playfair.variable} antialiased`}>{children}{process.env.NODE_ENV === 'production' && <Analytics />}</body></html>
+  return (
+    <html lang="pt-BR" className="bg-background">
+      <body className={`${inter.variable} ${playfair.variable} antialiased`}>
+        {/* Roda antes da hidratação: aplica o tema salvo (localStorage) sem flash. */}
+        <script suppressHydrationWarning dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+        {children}
+        {process.env.NODE_ENV === 'production' && <Analytics />}
+      </body>
+    </html>
+  )
 }
