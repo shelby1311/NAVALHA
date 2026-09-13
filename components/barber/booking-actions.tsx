@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import type { BookingStatus, BookingWithDetails } from '@/lib/contracts'
 import { actionsFor } from '@/lib/ui'
@@ -11,16 +12,22 @@ export function BookingActions({ booking, updating, onChangeStatus }: Props) {
 
   return (
     <>
-      {actionsFor(booking.status).map((action) => (
-        <button
-          key={action.to}
-          onClick={() => (action.to === 'cancelled' ? setConfirmingCancel(true) : onChangeStatus(booking.id, action.to))}
-          disabled={updating === booking.id}
-          className={`rounded-lg px-3 py-1.5 text-xs font-medium disabled:opacity-50 ${action.to === 'cancelled' ? 'bg-destructive/10 text-destructive' : 'bg-primary/10 text-primary'}`}
-        >
-          {action.label}
-        </button>
-      ))}
+      {actionsFor(booking.status).map((action) =>
+        action.to === 'cancelled' ? (
+          <Button key={action.to} onClick={() => setConfirmingCancel(true)} disabled={updating === booking.id} variant="destructive" size="xs">
+            {action.label}
+          </Button>
+        ) : (
+          <button
+            key={action.to}
+            onClick={() => onChangeStatus(booking.id, action.to)}
+            disabled={updating === booking.id}
+            className="rounded-lg bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary transition-colors duration-200 hover:bg-primary/20 disabled:opacity-50"
+          >
+            {action.label}
+          </button>
+        ),
+      )}
 
       <ConfirmDialog
         open={confirmingCancel}

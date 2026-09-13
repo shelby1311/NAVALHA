@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { CalendarDays, Check, DollarSign, Settings2, Users, Wallet, type LucideIcon } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { useToast } from '@/components/ui/toast'
 import { apiClient } from '@/lib/api-client'
 import { centsToMoney, type BarberService, type BookingStatus, type BookingWithDetails, type FinancialEntry, type UserProfile } from '@/lib/contracts'
 import { isCurrentMonth, isToday, POLL_INTERVAL_MS, usePolling } from '@/lib/ui'
+import { cn } from '@/lib/utils'
 import { BarberOverview } from './barber-overview'
 import { BarberQueue } from './barber-queue'
 import { BarberServices } from './barber-services'
@@ -87,10 +89,10 @@ export function BarberHome({ onSettings, profile }: { onSettings: () => void; pr
           <h1 className="mt-2 font-serif text-3xl font-semibold tracking-tight sm:text-4xl">Bom dia, {profile.name.split(' ')[0]}.</h1>
           <p className="mt-2 text-sm text-muted-foreground">Sua operação em um só lugar.</p>
         </div>
-        <button onClick={onSettings} className="flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-3 text-sm"><Settings2 size={16} /> Configurações</button>
+        <Button onClick={onSettings} variant="outline" size="lg" className="px-4 py-3"><Settings2 size={16} /> Configurações</Button>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="stats-grid">
         {stats.map(({ label, value, detail, Icon }) => (
           <Card key={label} className="p-5">
             <div className="flex items-center justify-between">
@@ -106,11 +108,11 @@ export function BarberHome({ onSettings, profile }: { onSettings: () => void; pr
       <div className="mt-6 grid gap-6 lg:grid-cols-[220px_1fr]">
         <aside className="flex gap-2 overflow-x-auto lg:flex-col">
           {nav.map(({ key, label, icon: Icon }) => (
-            <button key={key} onClick={() => setSection(key)} aria-current={section === key ? 'page' : undefined} className={`flex shrink-0 items-center gap-3 rounded-xl px-4 py-3 text-left text-sm ${section === key ? 'bg-primary text-primary-foreground' : 'border border-border bg-card text-muted-foreground'}`}>
+            <button key={key} onClick={() => setSection(key)} aria-current={section === key ? 'page' : undefined} className={cn('flex shrink-0 items-center gap-3 rounded-xl px-4 py-3 text-left text-sm transition-colors duration-200', section === key ? 'bg-primary text-primary-foreground' : 'border border-border bg-card text-muted-foreground hover:text-foreground')}>
               <Icon size={17} />{label}
             </button>
           ))}
-          <button onClick={onSettings} className="flex shrink-0 items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 text-left text-sm text-muted-foreground"><Settings2 size={17} />Configurações</button>
+          <button onClick={onSettings} className="flex shrink-0 items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 text-left text-sm text-muted-foreground transition-colors duration-200 hover:text-foreground"><Settings2 size={17} />Configurações</button>
         </aside>
 
         <section className="rounded-2xl border border-border bg-card p-5 sm:p-6">
