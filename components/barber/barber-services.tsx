@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import { Pencil, Plus, Scissors } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useToast } from '@/components/ui/toast'
 import { apiClient } from '@/lib/api-client'
 import { centsToMoney, type BarberService } from '@/lib/contracts'
+import { cn } from '@/lib/utils'
 
 type Props = { services: BarberService[]; onServicesChange: React.Dispatch<React.SetStateAction<BarberService[]>>; loading: boolean }
 
@@ -66,7 +68,7 @@ export function BarberServices({ services, onServicesChange, loading }: Props) {
         <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nome do serviço" aria-label="Nome do serviço" />
         <Input value={price} onChange={(e) => setPrice(e.target.value)} placeholder="Preço (R$)" inputMode="decimal" aria-label="Preço" />
         <Input value={duration} onChange={(e) => setDuration(e.target.value)} placeholder="Minutos" inputMode="numeric" aria-label="Duração" />
-        <button type="submit" disabled={submittingService} className="flex items-center justify-center gap-1.5 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-50"><Plus size={16} />{submittingService ? 'Adicionando...' : 'Adicionar'}</button>
+        <Button type="submit" disabled={submittingService} className="justify-center px-4 py-2.5"><Plus size={16} />{submittingService ? 'Adicionando...' : 'Adicionar'}</Button>
       </form>
 
       <div className="mt-6 divide-y divide-border">
@@ -82,24 +84,24 @@ export function BarberServices({ services, onServicesChange, loading }: Props) {
         ) : (
           services.map((service) => (
             <div key={service.id} className="flex flex-wrap items-center gap-3 py-4">
-              <Scissors size={16} className="text-primary" />
+              <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary"><Scissors size={15} /></span>
               <div className="min-w-0 flex-1">
-                <p className={`text-sm font-medium ${service.active ? '' : 'text-muted-foreground line-through'}`}>{service.name}</p>
+                <p className={cn('text-sm font-medium', !service.active && 'text-muted-foreground line-through')}>{service.name}</p>
               </div>
               {editingId === service.id ? (
                 <>
-                  <input value={editPrice} onChange={(e) => setEditPrice(e.target.value)} placeholder="Preço (R$)" inputMode="decimal" aria-label="Editar preço" className="w-24 rounded-lg border border-input bg-background px-2 py-1.5 text-xs outline-none focus:ring-2 focus:ring-ring" />
-                  <input value={editDuration} onChange={(e) => setEditDuration(e.target.value)} placeholder="Minutos" inputMode="numeric" aria-label="Editar duração" className="w-20 rounded-lg border border-input bg-background px-2 py-1.5 text-xs outline-none focus:ring-2 focus:ring-ring" />
-                  <button onClick={() => saveEdit(service.id)} className="rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground">Salvar</button>
-                  <button onClick={() => setEditingId(null)} className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium">Cancelar</button>
+                  <Input value={editPrice} onChange={(e) => setEditPrice(e.target.value)} placeholder="Preço (R$)" inputMode="decimal" aria-label="Editar preço" className="w-24 py-1.5 text-xs" />
+                  <Input value={editDuration} onChange={(e) => setEditDuration(e.target.value)} placeholder="Minutos" inputMode="numeric" aria-label="Editar duração" className="w-20 py-1.5 text-xs" />
+                  <Button onClick={() => saveEdit(service.id)} size="xs">Salvar</Button>
+                  <Button onClick={() => setEditingId(null)} variant="outline" size="xs">Cancelar</Button>
                 </>
               ) : (
                 <>
-                  <button onClick={() => startEdit(service)} aria-label={`Editar preço e duração de ${service.name}`} className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-sm font-semibold hover:bg-muted">
+                  <button onClick={() => startEdit(service)} aria-label={`Editar preço e duração de ${service.name}`} className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-sm font-semibold transition-colors hover:bg-elevated">
                     {centsToMoney(service.priceCents)}<Pencil size={12} className="text-muted-foreground" />
                   </button>
                   <span className="text-xs text-muted-foreground">{service.durationMinutes} min</span>
-                  <button onClick={() => toggleService(service)} aria-pressed={service.active} className={`rounded-lg px-3 py-1.5 text-xs font-medium ${service.active ? 'bg-emerald-500/15 text-emerald-400' : 'bg-muted text-muted-foreground'}`}>
+                  <button onClick={() => toggleService(service)} aria-pressed={service.active} className={cn('rounded-lg px-3 py-1.5 text-xs font-medium transition-colors', service.active ? 'bg-emerald-500/15 text-emerald-400' : 'bg-muted text-muted-foreground')}>
                     {service.active ? 'Ativo' : 'Pausado'}
                   </button>
                 </>
