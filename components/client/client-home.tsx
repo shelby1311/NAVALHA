@@ -164,7 +164,7 @@ function SearchResults({ filtered, loading, online, error, onSelect }: { filtere
                     <span className={cn('flex items-center gap-2 text-xs', barber.online ? 'text-emerald-400' : 'text-muted-foreground')}>
                       <span className="size-2 rounded-full bg-current" />{barber.online ? 'Livre agora' : 'Indisponível'}
                     </span>
-                    <Button onClick={() => onSelect(barber)} size="sm">Ver horários <ChevronRight size={14} /></Button>
+                    <Button onClick={() => onSelect(barber)} size="sm">Ver perfil <ChevronRight size={14} /></Button>
                   </div>
                 </div>
               </div>
