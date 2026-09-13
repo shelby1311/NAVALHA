@@ -4,6 +4,8 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Input, Label } from '@/components/ui/input'
 import { Logo } from '@/components/navalha/logo'
 import { authApi } from '@/lib/auth-api'
 
@@ -43,16 +45,16 @@ export default function EntrarPage() {
 
         <section className="w-full max-w-xl rounded-3xl border border-border bg-card p-5 shadow-2xl shadow-black/20 sm:p-7">
           <form onSubmit={onSubmit} className="grid gap-3">
-            <label className="grid gap-2 text-sm">Email
-              <input required type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="seu@email.com" aria-label="Email" className="rounded-xl border border-border bg-background px-4 py-3 text-sm outline-none focus:border-primary" />
-            </label>
-            <label className="grid gap-2 text-sm">Senha
-              <input required type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Sua senha" aria-label="Senha" className="rounded-xl border border-border bg-background px-4 py-3 text-sm outline-none focus:border-primary" />
-            </label>
+            <Label>Email
+              <Input required type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="seu@email.com" aria-label="Email" />
+            </Label>
+            <Label>Senha
+              <Input required type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Sua senha" aria-label="Senha" />
+            </Label>
             {error && <p className="rounded-xl bg-destructive/10 px-4 py-3 text-sm text-destructive">{error}</p>}
-            <button type="submit" disabled={loading} className="mt-4 w-full rounded-xl bg-primary px-5 py-3.5 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-50">
+            <Button type="submit" disabled={loading} size="lg" className="mt-4 w-full justify-center py-3.5">
               {loading ? 'Entrando...' : 'Entrar'}
-            </button>
+            </Button>
           </form>
           <p className="mt-4 text-center text-xs text-muted-foreground">Ainda não tem conta? <Link href="/cadastro" className="font-medium text-primary hover:underline">Criar conta</Link></p>
         </section>

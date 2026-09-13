@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { Menu, Settings2 } from 'lucide-react'
 import { BarberHome } from '@/components/barber/barber-home'
 import { ClientHome } from '@/components/client/client-home'
+import { Button } from '@/components/ui/button'
 import { Logo } from '@/components/navalha/logo'
 import { MobileMenu } from '@/components/navalha/mobile-menu'
 import { SettingsPanel } from '@/components/navalha/settings-panel'
@@ -50,17 +51,17 @@ export default function Page() {
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3">
           <Logo />
           <div className="order-3 flex w-full items-center gap-1 overflow-x-auto rounded-xl border border-border bg-card p-1 md:order-none md:w-auto">
-            <button onClick={() => setMode('client')} aria-current={effectiveMode === 'client' ? 'page' : undefined} className={`whitespace-nowrap rounded-lg px-4 py-2 text-xs font-medium ${effectiveMode === 'client' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}`}>Encontrar barbeiro</button>
-            {isBarber && <button onClick={() => setMode('barber')} aria-current={effectiveMode === 'barber' ? 'page' : undefined} className={`whitespace-nowrap rounded-lg px-4 py-2 text-xs font-medium ${effectiveMode === 'barber' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground'}`}>Minha barbearia</button>}
+            <button onClick={() => setMode('client')} aria-current={effectiveMode === 'client' ? 'page' : undefined} className={`whitespace-nowrap rounded-lg px-4 py-2 text-xs font-medium transition-colors duration-200 ${effectiveMode === 'client' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}>Encontrar barbeiro</button>
+            {isBarber && <button onClick={() => setMode('barber')} aria-current={effectiveMode === 'barber' ? 'page' : undefined} className={`whitespace-nowrap rounded-lg px-4 py-2 text-xs font-medium transition-colors duration-200 ${effectiveMode === 'barber' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}>Minha barbearia</button>}
           </div>
           <div className="flex items-center gap-2">
             <span className="hidden text-xs text-muted-foreground sm:inline">{effectiveMode === 'client' ? 'Acesso gratuito' : 'Painel profissional'}</span>
             {profile ? (
-              <button onClick={() => setSettingsOpen(true)} aria-label="Abrir configurações" className="grid size-10 place-items-center rounded-xl border border-border bg-card text-muted-foreground hover:text-foreground"><Settings2 size={17} /></button>
+              <Button onClick={() => setSettingsOpen(true)} aria-label="Abrir configurações" variant="outline" size="icon" className="size-10"><Settings2 size={17} /></Button>
             ) : !loadingProfile && (
-              <Link href="/entrar" className="whitespace-nowrap rounded-xl border border-border bg-card px-4 py-2.5 text-xs font-medium text-muted-foreground hover:text-foreground">Entrar</Link>
+              <Link href="/entrar" className="whitespace-nowrap rounded-xl border border-border bg-card px-4 py-2.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground">Entrar</Link>
             )}
-            <button onClick={() => setMobileMenuOpen(true)} aria-label="Abrir menu" className="rounded-lg p-2 text-muted-foreground hover:text-foreground md:hidden"><Menu size={19} /></button>
+            <Button onClick={() => setMobileMenuOpen(true)} aria-label="Abrir menu" variant="ghost" size="icon" className="md:hidden"><Menu size={19} /></Button>
           </div>
         </div>
       </header>

@@ -4,6 +4,7 @@ import { Drawer } from '@base-ui/react/drawer'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { LogOut, Settings2, UserRound, X } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import type { UserProfile } from '@/lib/contracts'
 import { authApi } from '@/lib/auth-api'
 import { Logo } from './logo'
@@ -42,15 +43,17 @@ export function MobileMenu({ open, onOpenChange, profile, onOpenSettings }: Prop
                     <p className="text-xs text-muted-foreground">{profile.role === 'barber' ? 'Conta de barbeiro' : 'Conta de cliente'}</p>
                   </div>
                 </div>
-                <button
+                <Button
                   onClick={() => { onOpenChange(false); onOpenSettings() }}
-                  className="flex items-center gap-3 rounded-xl border border-border px-4 py-3 text-left text-sm text-foreground"
+                  variant="outline"
+                  size="lg"
+                  className="w-full justify-start px-4 py-3"
                 >
                   <Settings2 size={17} className="text-muted-foreground" /> Configurações
-                </button>
-                <button onClick={signOut} className="flex items-center gap-3 rounded-xl px-4 py-3 text-left text-sm text-destructive">
+                </Button>
+                <Button onClick={signOut} variant="destructive" size="lg" className="w-full justify-start px-4 py-3">
                   <LogOut size={17} /> Sair da conta
-                </button>
+                </Button>
               </>
             ) : (
               <>

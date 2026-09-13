@@ -4,8 +4,11 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, Check, Scissors, UserRound } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { Logo } from '@/components/navalha/logo'
 import { authApi } from '@/lib/auth-api'
+import { cn } from '@/lib/utils'
 
 const roles = {
   client: {
@@ -78,17 +81,17 @@ export default function CadastroPage() {
               {(Object.keys(roles) as Array<'client' | 'barber'>).map((item) => {
                 const isSelected = role === item
                 const Icon = item === 'client' ? UserRound : Scissors
-                return <button key={item} type="button" onClick={() => setRole(item)} aria-pressed={isSelected} className={`rounded-2xl border p-5 text-left transition ${isSelected ? 'border-primary bg-primary/10 ring-1 ring-primary' : 'border-border hover:border-primary/50'}`}><div className="flex items-center justify-between"><span className={`grid size-10 place-items-center rounded-xl ${isSelected ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}><Icon size={19} /></span>{isSelected && <span className="grid size-6 place-items-center rounded-full bg-primary text-primary-foreground"><Check size={14} /></span>}</div><p className="mt-5 font-semibold">{roles[item].label}</p><p className="mt-2 text-sm leading-6 text-muted-foreground">{roles[item].description}</p></button>
+                return <button key={item} type="button" onClick={() => setRole(item)} aria-pressed={isSelected} className={cn('rounded-2xl border p-5 text-left transition-colors duration-200', isSelected ? 'border-primary bg-primary/10 ring-1 ring-primary' : 'border-border hover:border-primary/50')}><div className="flex items-center justify-between"><span className={cn('grid size-10 place-items-center rounded-xl', isSelected ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground')}><Icon size={19} /></span>{isSelected && <span className="grid size-6 place-items-center rounded-full bg-primary text-primary-foreground"><Check size={14} /></span>}</div><p className="mt-5 font-semibold">{roles[item].label}</p><p className="mt-2 text-sm leading-6 text-muted-foreground">{roles[item].description}</p></button>
               })}
             </div>
             <div className="mt-6 rounded-2xl bg-muted/60 p-5"><p className="text-sm font-semibold">Sua conta inclui</p><ul className="mt-4 grid gap-3">{selected.points.map((point) => <li key={point} className="flex items-center gap-3 text-sm text-muted-foreground"><span className="grid size-5 place-items-center rounded-full bg-primary/15 text-primary"><Check size={12} /></span>{point}</li>)}</ul></div>
-            {role === 'barber' && <div className="mt-5 grid gap-3 sm:grid-cols-2"><input required value={businessName} onChange={(e) => setBusinessName(e.target.value)} placeholder="Nome da barbearia" aria-label="Nome da barbearia" className="rounded-xl border border-border bg-background px-4 py-3 text-sm outline-none focus:border-primary" /><input required value={cityNeighborhood} onChange={(e) => setCityNeighborhood(e.target.value)} placeholder="Cidade e bairro (ex.: São Paulo, Pinheiros)" aria-label="Cidade e bairro" className="rounded-xl border border-border bg-background px-4 py-3 text-sm outline-none focus:border-primary" /></div>}
-            <div className="mt-5 grid gap-3 sm:grid-cols-2"><input required type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Seu nome" aria-label="Seu nome" className="rounded-xl border border-border bg-background px-4 py-3 text-sm outline-none focus:border-primary" /><input required type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Seu melhor email" aria-label="Seu melhor email" className="rounded-xl border border-border bg-background px-4 py-3 text-sm outline-none focus:border-primary sm:col-span-1" /></div>
-            <input required type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Crie uma senha segura" aria-label="Crie uma senha segura" className="mt-3 w-full rounded-xl border border-border bg-background px-4 py-3 text-sm outline-none focus:border-primary" />
+            {role === 'barber' && <div className="mt-5 grid gap-3 sm:grid-cols-2"><Input required value={businessName} onChange={(e) => setBusinessName(e.target.value)} placeholder="Nome da barbearia" aria-label="Nome da barbearia" /><Input required value={cityNeighborhood} onChange={(e) => setCityNeighborhood(e.target.value)} placeholder="Cidade e bairro (ex.: São Paulo, Pinheiros)" aria-label="Cidade e bairro" /></div>}
+            <div className="mt-5 grid gap-3 sm:grid-cols-2"><Input required type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Seu nome" aria-label="Seu nome" /><Input required type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Seu melhor email" aria-label="Seu melhor email" /></div>
+            <Input required type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Crie uma senha segura" aria-label="Crie uma senha segura" className="mt-3" />
             {error && <p className="mt-4 rounded-xl bg-destructive/10 px-4 py-3 text-sm text-destructive">{error}</p>}
-            <button type="submit" disabled={loading} className="mt-5 w-full rounded-xl bg-primary px-5 py-3.5 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 disabled:opacity-50">
+            <Button type="submit" disabled={loading} size="lg" className="mt-5 w-full justify-center py-3.5">
               {loading ? 'Criando conta...' : `Criar conta de ${selected.label.toLowerCase()}`}
-            </button>
+            </Button>
           </form>
           <p className="mt-4 text-center text-xs text-muted-foreground">Já tem uma conta? <Link href="/entrar" className="font-medium text-primary hover:underline">Entrar</Link></p>
         </section>
