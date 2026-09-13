@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Camera, Check, LogOut } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input, Label, Select } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
@@ -181,17 +182,17 @@ export function SettingsPanel({ profile, open, onClose, onSaved }: Props) {
               <p className="text-muted-foreground">Tipo de conta</p>
               <p className="mt-1 font-medium">{draft.role === 'barber' ? 'Barbeiro' : 'Cliente'}</p>
             </div>
-            <button onClick={signOut} className="flex items-center justify-center gap-2 rounded-2xl border border-destructive/30 p-4 text-sm font-medium text-destructive hover:bg-destructive/10">
+            <Button onClick={signOut} variant="destructive" size="lg" className="justify-center p-4">
               <LogOut size={16} /> Sair da conta
-            </button>
+            </Button>
           </TabsPanel>
         </Tabs>
 
         <div className="mt-7 flex flex-col-reverse gap-3 border-t border-border pt-5 sm:flex-row sm:justify-end">
-          <button onClick={() => handleOpenChange(false)} className="rounded-xl border border-border px-5 py-3 text-sm font-medium">Cancelar</button>
-          <button onClick={save} disabled={saving} className="flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground disabled:opacity-50">
+          <Button onClick={() => handleOpenChange(false)} variant="outline" size="lg" className="justify-center px-5 py-3">Cancelar</Button>
+          <Button onClick={save} disabled={saving} size="lg" className="justify-center px-5 py-3">
             {saving ? 'Salvando...' : <><Check size={16} /> Salvar alterações</>}
-          </button>
+          </Button>
         </div>
       </DialogContent>
     </Dialog>
