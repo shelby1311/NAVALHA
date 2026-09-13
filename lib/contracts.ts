@@ -108,6 +108,7 @@ export type FinancialEntry = {
 
 export type BarberSearchFilters = {
   q?: string
+  service?: string
   onlyOnline: boolean
   lat?: number
   lng?: number
@@ -121,6 +122,9 @@ export type BarberSearchResult = {
   neighborhood: string | null
   isOnline: boolean
   distanceKm: number | null
+  startingPriceCents: number | null
+  cheapestService: { name: string; priceCents: number; durationMinutes: number } | null
+  serviceTags: string[]
 }
 
 export type AvailabilityResponse = { slots: string[] }

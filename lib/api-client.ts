@@ -24,6 +24,7 @@ export const apiClient = {
   searchBarbers: (filters: BarberSearchFilters) => {
     const params = new URLSearchParams({ onlyOnline: String(filters.onlyOnline) })
     if (filters.q) params.set('q', filters.q)
+    if (filters.service) params.set('service', filters.service)
     if (filters.lat != null) params.set('lat', String(filters.lat))
     if (filters.lng != null) params.set('lng', String(filters.lng))
     return request<BarberSearchResult[]>(`${API_ENDPOINTS.discovery}?${params}`)
