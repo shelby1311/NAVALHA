@@ -13,6 +13,8 @@
   --color-popover-foreground: var(--popover-foreground);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
+  --color-primary-hover: var(--primary-hover);
+  --color-elevated: var(--elevated);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);
@@ -26,6 +28,19 @@
   --font-sans: 'Inter', 'Inter Fallback';
   --font-serif: 'Playfair Display', 'Georgia', serif;
   --font-mono: 'Geist Mono', monospace;
+
+  /* Escala de raio derivada de --radius (premium, mais arredondado que o default do Tailwind). */
+  --radius-sm: calc(var(--radius) - 6px);
+  --radius-md: calc(var(--radius) - 4px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 16px);
+
+  --shadow-soft: var(--shadow-soft-value);
+  --shadow-elevated: var(--shadow-elevated-value);
+  --shadow-glow-primary: 0 0 32px -4px oklch(0.664 0.083 77 / 35%);
+  --ease-premium: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 /*
@@ -37,46 +52,55 @@
  */
 :root {
   color-scheme: dark;
-  --background: oklch(0.125 0.012 265); --foreground: oklch(0.965 0.01 90);
-  --card: oklch(0.17 0.014 265); --card-foreground: oklch(0.965 0.01 90);
-  --popover: oklch(0.17 0.014 265); --popover-foreground: oklch(0.965 0.01 90);
-  --primary: oklch(0.78 0.14 80); --primary-foreground: oklch(0.16 0.03 75);
-  --secondary: oklch(0.22 0.015 265); --secondary-foreground: oklch(0.9 0.01 90);
-  --muted: oklch(0.22 0.015 265); --muted-foreground: oklch(0.64 0.015 265);
-  --accent: oklch(0.24 0.025 80); --accent-foreground: oklch(0.9 0.08 80);
+  --background: oklch(0.150 0.002 286); --foreground: oklch(0.970 0 0);
+  --card: oklch(0.179 0.004 286); --card-foreground: oklch(0.970 0 0);
+  --popover: oklch(0.179 0.004 286); --popover-foreground: oklch(0.970 0 0);
+  --elevated: oklch(0.210 0.006 286);
+  --primary: oklch(0.664 0.083 77); --primary-foreground: oklch(0.16 0.02 77); --primary-hover: oklch(0.549 0.074 72);
+  --secondary: oklch(0.225 0.005 286); --secondary-foreground: oklch(0.9 0 0);
+  --muted: oklch(0.225 0.005 286); --muted-foreground: oklch(0.62 0.006 286);
+  --accent: oklch(0.24 0.02 77); --accent-foreground: oklch(0.88 0.06 77);
   --destructive: oklch(0.62 0.2 25);
-  --border: oklch(1 0 0 / 10%); --input: oklch(1 0 0 / 12%); --ring: oklch(0.78 0.14 80);
-  --radius: 0.75rem;
+  --border: oklch(1 0 0 / 8%); --input: oklch(1 0 0 / 10%); --ring: oklch(0.664 0.083 77);
+  --radius: 0.875rem;
+  --shadow-soft-value: 0 1px 2px oklch(0 0 0 / 40%), 0 12px 28px -8px oklch(0 0 0 / 45%);
+  --shadow-elevated-value: 0 2px 4px oklch(0 0 0 / 45%), 0 20px 40px -12px oklch(0 0 0 / 55%);
 }
 
 /* "system": tokens claros só quando o SO também prefere claro (senão herda o :root escuro acima). */
 :root[data-theme='system'] {
   @media (prefers-color-scheme: light) {
     color-scheme: light;
-    --background: oklch(0.985 0.004 90); --foreground: oklch(0.2 0.02 265);
-    --card: oklch(1 0 0); --card-foreground: oklch(0.2 0.02 265);
-    --popover: oklch(1 0 0); --popover-foreground: oklch(0.2 0.02 265);
-    --primary: oklch(0.58 0.16 75); --primary-foreground: oklch(0.99 0.01 90);
-    --secondary: oklch(0.95 0.01 265); --secondary-foreground: oklch(0.25 0.02 265);
-    --muted: oklch(0.95 0.01 265); --muted-foreground: oklch(0.48 0.02 265);
-    --accent: oklch(0.93 0.04 80); --accent-foreground: oklch(0.35 0.08 75);
+    --background: oklch(0.964 0.007 89); --foreground: oklch(0.205 0 0);
+    --card: oklch(1 0 0); --card-foreground: oklch(0.205 0 0);
+    --popover: oklch(1 0 0); --popover-foreground: oklch(0.205 0 0);
+    --elevated: oklch(0.922 0.010 88);
+    --primary: oklch(0.664 0.083 77); --primary-foreground: oklch(0.99 0.01 90); --primary-hover: oklch(0.549 0.074 72);
+    --secondary: oklch(0.922 0.010 88); --secondary-foreground: oklch(0.25 0.006 88);
+    --muted: oklch(0.922 0.010 88); --muted-foreground: oklch(0.48 0.008 88);
+    --accent: oklch(0.9 0.03 77); --accent-foreground: oklch(0.35 0.06 75);
     --destructive: oklch(0.5 0.2 25);
-    --border: oklch(0 0 0 / 8%); --input: oklch(0 0 0 / 10%); --ring: oklch(0.58 0.16 75);
+    --border: oklch(0 0 0 / 6%); --input: oklch(0 0 0 / 8%); --ring: oklch(0.664 0.083 77);
+    --shadow-soft-value: 0 1px 2px oklch(0 0 0 / 4%), 0 12px 28px -8px oklch(0 0 0 / 10%);
+    --shadow-elevated-value: 0 2px 4px oklch(0 0 0 / 5%), 0 20px 40px -12px oklch(0 0 0 / 14%);
   }
 }
 
 /* "light": os mesmos tokens claros, mas incondicionais (força claro mesmo com SO em dark). */
 :root[data-theme='light'] {
   color-scheme: light;
-  --background: oklch(0.985 0.004 90); --foreground: oklch(0.2 0.02 265);
-  --card: oklch(1 0 0); --card-foreground: oklch(0.2 0.02 265);
-  --popover: oklch(1 0 0); --popover-foreground: oklch(0.2 0.02 265);
-  --primary: oklch(0.58 0.16 75); --primary-foreground: oklch(0.99 0.01 90);
-  --secondary: oklch(0.95 0.01 265); --secondary-foreground: oklch(0.25 0.02 265);
-  --muted: oklch(0.95 0.01 265); --muted-foreground: oklch(0.48 0.02 265);
-  --accent: oklch(0.93 0.04 80); --accent-foreground: oklch(0.35 0.08 75);
+  --background: oklch(0.964 0.007 89); --foreground: oklch(0.205 0 0);
+  --card: oklch(1 0 0); --card-foreground: oklch(0.205 0 0);
+  --popover: oklch(1 0 0); --popover-foreground: oklch(0.205 0 0);
+  --elevated: oklch(0.922 0.010 88);
+  --primary: oklch(0.664 0.083 77); --primary-foreground: oklch(0.99 0.01 90); --primary-hover: oklch(0.549 0.074 72);
+  --secondary: oklch(0.922 0.010 88); --secondary-foreground: oklch(0.25 0.006 88);
+  --muted: oklch(0.922 0.010 88); --muted-foreground: oklch(0.48 0.008 88);
+  --accent: oklch(0.9 0.03 77); --accent-foreground: oklch(0.35 0.06 75);
   --destructive: oklch(0.5 0.2 25);
-  --border: oklch(0 0 0 / 8%); --input: oklch(0 0 0 / 10%); --ring: oklch(0.58 0.16 75);
+  --border: oklch(0 0 0 / 6%); --input: oklch(0 0 0 / 8%); --ring: oklch(0.664 0.083 77);
+  --shadow-soft-value: 0 1px 2px oklch(0 0 0 / 4%), 0 12px 28px -8px oklch(0 0 0 / 10%);
+  --shadow-elevated-value: 0 2px 4px oklch(0 0 0 / 5%), 0 20px 40px -12px oklch(0 0 0 / 14%);
 }
 
 * { @apply border-border outline-ring/50; }
@@ -92,14 +116,34 @@ button, a { -webkit-tap-highlight-color: transparent; transition: background-col
 img, svg { max-width: 100%; }
 input, select, textarea, button { max-width: 100%; }
 
+/*
+ * Os seletores [class*="..."] abaixo ainda são usados por barber-home.tsx e
+ * booking-modal.tsx (fora do escopo do redesign em andamento). Telas novas ou
+ * redesenhadas devem usar as `@utility` nomeadas (results-grid, filter-row)
+ * em vez de depender desses seletores frágeis. Remover quando
+ * `grep -rn 'grid-cols-4\|lg:grid-cols' components/` não achar mais nada
+ * fora de telas já migradas.
+ */
+@utility results-grid {
+  display: grid;
+  gap: calc(var(--spacing) * 4);
+  grid-template-columns: minmax(0, 1fr);
+  @media (min-width: 1200px) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@utility filter-row {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--spacing) * 3);
+  @media (min-width: 768px) { flex-direction: row; }
+}
+
 @media (max-width: 767px) {
   main > div { padding-inline: 1rem !important; padding-top: 1.5rem !important; padding-bottom: 6rem !important; }
   h1 { max-width: 100%; font-size: clamp(1.75rem, 8vw, 2.25rem); line-height: 1.12; text-wrap: balance; }
   section { min-width: 0; }
   [class*="grid-cols-4"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   [class*="lg:grid-cols"] { grid-template-columns: minmax(0, 1fr); }
-  [class*="flex gap-3 rounded-2xl"] { flex-direction: column; }
-  [class*="flex gap-3 rounded-2xl"] button { min-height: 2.75rem; }
 }
 
 @media (min-width: 768px) and (max-width: 1199px) {

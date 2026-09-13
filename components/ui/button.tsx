@@ -3,27 +3,24 @@ import { cva, type VariantProps } from 'class-variance-authority'
 
 import { cn } from '@/lib/utils'
 
-// Decisão (auditoria Fase 4): mantido sem uso no app por enquanto. Levantamento
-// real encontrou 31 <button> crus (não ~60), já consistentes dentro de cada
-// categoria (CTA cheia, ação inline, outline, destrutivo, ícone, toggle,
-// nav-pill) — ver relatório da fase. Metade se encaixa bem nas variantes daqui
-// (default/outline/destructive/ghost), a outra metade é toggle/nav-pill sem
-// variante equivalente. Trocar só a metade que encaixa criaria dois sistemas de
-// botão em paralelo — pior pra consistência, não melhor. Fica disponível pra
-// botões NOVOS que encaixem numa variante existente; não force um retrofit.
+// Decisão (auditoria Fase 4, reaberta no redesign visual premium): os 31
+// <button> crus que já existem no app migram incrementalmente, tela por tela
+// redesenhada — não num find-replace isolado. Componentes NOVOS usam `Button`
+// a partir de agora; as variantes abaixo usam os tokens de profundidade
+// (--elevated, --primary-hover) criados para o redesign.
 
 const buttonVariants = cva(
-  "group/button inline-flex shrink-0 items-center justify-center rounded-lg border border-transparent bg-clip-padding text-sm font-medium whitespace-nowrap transition-all outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  "group/button inline-flex shrink-0 items-center justify-center rounded-lg border border-transparent bg-clip-padding text-sm font-medium whitespace-nowrap transition-all duration-200 ease-[var(--ease-premium)] outline-none select-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 active:not-aria-[haspopup]:translate-y-px disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
       variant: {
-        default: 'bg-primary text-primary-foreground [a]:hover:bg-primary/80',
+        default: 'bg-primary text-primary-foreground hover:bg-primary-hover',
         outline:
-          'border-border bg-background hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50',
+          'border-border bg-background hover:bg-elevated hover:text-foreground aria-expanded:bg-elevated aria-expanded:text-foreground dark:border-input dark:bg-input/30 dark:hover:bg-elevated',
         secondary:
-          'bg-secondary text-secondary-foreground hover:bg-secondary/80 aria-expanded:bg-secondary aria-expanded:text-secondary-foreground',
+          'bg-secondary text-secondary-foreground hover:bg-elevated aria-expanded:bg-elevated aria-expanded:text-secondary-foreground',
         ghost:
-          'hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:hover:bg-muted/50',
+          'hover:bg-elevated hover:text-foreground aria-expanded:bg-elevated aria-expanded:text-foreground',
         destructive:
           'bg-destructive/10 text-destructive hover:bg-destructive/20 focus-visible:border-destructive/40 focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:hover:bg-destructive/30 dark:focus-visible:ring-destructive/40',
         link: 'text-primary underline-offset-4 hover:underline',
