@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { AlertDialog } from '@base-ui/react/alert-dialog'
+import { buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
 type Props = {
@@ -27,15 +28,12 @@ function ConfirmDialog({ open, onOpenChange, title, description, confirmLabel = 
             <AlertDialog.Title className="text-lg font-semibold">{title}</AlertDialog.Title>
             {description && <AlertDialog.Description className="mt-2 text-sm text-muted-foreground">{description}</AlertDialog.Description>}
             <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-              <AlertDialog.Close className="rounded-xl border border-border px-4 py-2.5 text-sm font-medium">{cancelLabel}</AlertDialog.Close>
+              <AlertDialog.Close className={cn(buttonVariants({ variant: 'outline', size: 'lg' }), 'justify-center px-4 py-2.5')}>{cancelLabel}</AlertDialog.Close>
               <button
                 type="button"
                 onClick={onConfirm}
                 disabled={loading}
-                className={cn(
-                  'rounded-xl px-4 py-2.5 text-sm font-semibold disabled:opacity-50',
-                  destructive ? 'bg-destructive/10 text-destructive' : 'bg-primary text-primary-foreground',
-                )}
+                className={cn(buttonVariants({ variant: destructive ? 'destructive' : 'default', size: 'lg' }), 'justify-center px-4 py-2.5')}
               >
                 {loading ? 'Aguarde...' : confirmLabel}
               </button>

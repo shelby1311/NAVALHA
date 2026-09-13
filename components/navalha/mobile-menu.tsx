@@ -4,9 +4,10 @@ import { Drawer } from '@base-ui/react/drawer'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { LogOut, Settings2, UserRound, X } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import type { UserProfile } from '@/lib/contracts'
 import { authApi } from '@/lib/auth-api'
+import { cn } from '@/lib/utils'
 import { Logo } from './logo'
 
 type Props = { open: boolean; onOpenChange: (open: boolean) => void; profile: UserProfile | null; onOpenSettings: () => void }
@@ -57,8 +58,8 @@ export function MobileMenu({ open, onOpenChange, profile, onOpenSettings }: Prop
               </>
             ) : (
               <>
-                <Link href="/entrar" onClick={() => onOpenChange(false)} className="rounded-xl bg-primary px-4 py-3 text-center text-sm font-semibold text-primary-foreground">Entrar</Link>
-                <Link href="/cadastro" onClick={() => onOpenChange(false)} className="rounded-xl border border-border px-4 py-3 text-center text-sm font-medium">Criar conta</Link>
+                <Link href="/entrar" onClick={() => onOpenChange(false)} className={cn(buttonVariants({ size: 'lg' }), 'justify-center py-3')}>Entrar</Link>
+                <Link href="/cadastro" onClick={() => onOpenChange(false)} className={cn(buttonVariants({ variant: 'outline', size: 'lg' }), 'justify-center py-3')}>Criar conta</Link>
               </>
             )}
           </div>

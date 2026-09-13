@@ -40,6 +40,27 @@
   --shadow-soft: var(--shadow-soft-value);
   --shadow-elevated: var(--shadow-elevated-value);
   --ease-premium: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Movimento ambiental do background (seção "iluminação"/"parallax" do redesign
+     editorial): deslocamento de poucos pixels, bem lento — deve ser sentido, não visto.
+     `prefers-reduced-motion` já zera a duração de toda animação/transição (ver abaixo),
+     então essas correm livres aqui sem guarda própria. */
+  --animate-drift: drift 16s var(--ease-premium) infinite alternate;
+  --animate-drift-reverse: drift-reverse 20s var(--ease-premium) infinite alternate;
+  --animate-glow: glow 7s ease-in-out infinite alternate;
+}
+
+@keyframes drift {
+  from { transform: translate3d(0, 0, 0); }
+  to { transform: translate3d(8px, -10px, 0); }
+}
+@keyframes drift-reverse {
+  from { transform: translate3d(0, 0, 0); }
+  to { transform: translate3d(-10px, 8px, 0); }
+}
+@keyframes glow {
+  from { opacity: 0.5; }
+  to { opacity: 0.9; }
 }
 
 /*
@@ -61,7 +82,11 @@
   --accent: oklch(0.24 0.02 77); --accent-foreground: oklch(0.88 0.06 77);
   --destructive: oklch(0.62 0.2 25);
   --border: oklch(1 0 0 / 8%); --input: oklch(1 0 0 / 10%); --ring: oklch(0.664 0.083 77);
-  --radius: 0.875rem;
+  /* Hierarquia de raio (polimento fase 3): botões pousam perto de --radius-lg
+     (12px), inputs usam um valor fixo próprio (ver fieldClasses/search-input),
+     cards descem um degrau pro --radius-xl (16px) — nada de radius uniforme
+     "gigante" em toda superfície. */
+  --radius: 0.75rem;
   --shadow-soft-value: 0 1px 2px oklch(0 0 0 / 40%), 0 12px 28px -8px oklch(0 0 0 / 45%);
   --shadow-elevated-value: 0 2px 4px oklch(0 0 0 / 45%), 0 20px 40px -12px oklch(0 0 0 / 55%);
 }
@@ -118,32 +143,10 @@ input, select, textarea, button { max-width: 100%; }
 /*
  * Os seletores [class*="..."] abaixo ainda têm consumidores reais (ver
  * `grep -rn 'grid-cols-4\|lg:grid-cols' components/`) — telas novas ou
- * redesenhadas devem usar as `@utility` nomeadas (results-grid, filter-row,
- * stats-grid) em vez de depender deles. Remover quando o grep não achar
- * mais nada fora de telas já migradas.
+ * redesenhadas usam grid-template-columns arbitrário direto na classe (ex.:
+ * `lg:grid-cols-[220px_1fr]`) em vez de depender deles. Remover quando o
+ * grep não achar mais nada fora de telas já migradas.
  */
-@utility results-grid {
-  display: grid;
-  gap: calc(var(--spacing) * 4);
-  grid-template-columns: minmax(0, 1fr);
-  @media (min-width: 1200px) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
-
-@utility filter-row {
-  display: flex;
-  flex-direction: column;
-  gap: calc(var(--spacing) * 3);
-  @media (min-width: 768px) { flex-direction: row; }
-}
-
-@utility stats-grid {
-  display: grid;
-  gap: calc(var(--spacing) * 4);
-  grid-template-columns: minmax(0, 1fr);
-  @media (min-width: 640px) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  @media (min-width: 1024px) { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-}
-
 @media (max-width: 767px) {
   main > div { padding-inline: 1rem !important; padding-top: 1.5rem !important; padding-bottom: 6rem !important; }
   h1 { max-width: 100%; font-size: clamp(1.75rem, 8vw, 2.25rem); line-height: 1.12; text-wrap: balance; }

@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react'
-import { ArrowDownRight, ArrowUpRight, Plus, Receipt, Scale, TrendingDown, TrendingUp } from 'lucide-react'
+import { ArrowDownRight, ArrowUpRight, Plus, Receipt, TrendingDown, TrendingUp } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
 import { Input, Select } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -61,28 +60,19 @@ export function BarberFinance({ finances, onFinancesChange, loading }: Props) {
       </div>
 
       <TabsPanel value={financePeriod}>
-      <div className="mt-5 grid gap-3 sm:grid-cols-3">
-        <Card className="p-4">
-          <div className="flex items-center justify-between">
-            <p className="text-xs text-muted-foreground">Receitas</p>
-            <span className="rounded-lg bg-emerald-500/10 p-2 text-emerald-400"><TrendingUp size={16} /></span>
-          </div>
-          <p className="mt-4 text-lg font-semibold text-emerald-400">{centsToMoney(periodIncome)}</p>
-        </Card>
-        <Card className="p-4">
-          <div className="flex items-center justify-between">
-            <p className="text-xs text-muted-foreground">Despesas</p>
-            <span className="rounded-lg bg-destructive/10 p-2 text-destructive"><TrendingDown size={16} /></span>
-          </div>
-          <p className="mt-4 text-lg font-semibold text-destructive">{centsToMoney(periodExpense)}</p>
-        </Card>
-        <Card className="p-4">
-          <div className="flex items-center justify-between">
-            <p className="text-xs text-muted-foreground">Saldo</p>
-            <span className="rounded-lg bg-primary/10 p-2 text-primary"><Scale size={16} /></span>
-          </div>
-          <p className="mt-4 text-lg font-semibold">{centsToMoney(periodIncome - periodExpense)}</p>
-        </Card>
+      {/* Saldo é o número dominante; receitas/despesas ficam como fatos
+          secundários ao lado — sem três cards do mesmo peso visual. */}
+      <div className="mt-6 flex flex-wrap items-end gap-x-10 gap-y-4 border-b border-border/60 pb-6">
+        <div>
+          <p className="text-xs text-muted-foreground">Saldo do período</p>
+          <p className={cn('mt-1 font-serif text-4xl font-semibold tracking-tight sm:text-5xl', periodIncome - periodExpense < 0 && 'text-destructive')}>
+            {centsToMoney(periodIncome - periodExpense)}
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 pb-1 text-sm">
+          <span className="inline-flex items-center gap-1.5 text-muted-foreground"><TrendingUp size={14} className="text-emerald-400" />Receitas <strong className="font-semibold text-emerald-400">{centsToMoney(periodIncome)}</strong></span>
+          <span className="inline-flex items-center gap-1.5 text-muted-foreground"><TrendingDown size={14} className="text-destructive" />Despesas <strong className="font-semibold text-destructive">{centsToMoney(periodExpense)}</strong></span>
+        </div>
       </div>
 
       <form onSubmit={addFinanceEntry} className="mt-6 grid gap-3 rounded-xl border border-border bg-background p-4 sm:grid-cols-[110px_1fr_1fr_120px_auto]">

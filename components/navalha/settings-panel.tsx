@@ -124,15 +124,15 @@ export function SettingsPanel({ profile, open, onClose, onSaved }: Props) {
           {draft.role === 'barber' && (
             <TabsPanel value="agenda" className="mt-6">
               <p className="text-sm text-muted-foreground">Os clientes só verão horários disponíveis dentro dessa janela.</p>
-              <div className="mt-4 grid gap-2">
+              <div className="mt-4 divide-y divide-border rounded-xl border border-border">
                 {DAY_ORDER.map((day) => {
                   const config = draft.openingHours?.[day] ?? DEFAULT_OPENING_HOURS[day]
                   return (
-                    <div key={day} className="flex flex-wrap items-center gap-3 rounded-xl border border-border p-3 text-sm">
+                    <div key={day} className="flex flex-wrap items-center gap-3 p-3 text-sm">
                       <label className="flex w-24 items-center gap-2 font-medium"><input type="checkbox" checked={config.active} onChange={(e) => updateDay(day, { active: e.target.checked })} />{DAY_LABELS[day]}</label>
-                      <input type="time" value={config.open} disabled={!config.active} onChange={(e) => updateDay(day, { open: e.target.value })} className="rounded-lg border border-input bg-background px-2 py-1.5 text-xs outline-none focus:ring-2 focus:ring-ring disabled:opacity-40" />
+                      <input type="time" value={config.open} disabled={!config.active} onChange={(e) => updateDay(day, { open: e.target.value })} className="rounded-lg border border-input bg-background px-2 py-1.5 text-xs outline-none focus:ring-2 focus:ring-primary/25 disabled:opacity-40" />
                       <span className="text-xs text-muted-foreground">até</span>
-                      <input type="time" value={config.close} disabled={!config.active} onChange={(e) => updateDay(day, { close: e.target.value })} className="rounded-lg border border-input bg-background px-2 py-1.5 text-xs outline-none focus:ring-2 focus:ring-ring disabled:opacity-40" />
+                      <input type="time" value={config.close} disabled={!config.active} onChange={(e) => updateDay(day, { close: e.target.value })} className="rounded-lg border border-input bg-background px-2 py-1.5 text-xs outline-none focus:ring-2 focus:ring-primary/25 disabled:opacity-40" />
                     </div>
                   )
                 })}

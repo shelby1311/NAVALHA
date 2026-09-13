@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { ArrowLeft, Check, Scissors, UserRound } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { AmbientBackground } from '@/components/navalha/ambient-background'
 import { Logo } from '@/components/navalha/logo'
 import { authApi } from '@/lib/auth-api'
 import { cn } from '@/lib/utils'
@@ -64,9 +65,10 @@ export default function CadastroPage() {
 
   return (
     <main className="min-h-screen bg-background px-4 py-8 text-foreground sm:px-6 lg:px-10">
+      <AmbientBackground />
       <div className="mx-auto flex max-w-6xl flex-col gap-10 lg:flex-row lg:items-center lg:py-10">
-        <section className="max-w-xl flex-1">
-          <Link href="/" className="mb-12 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+        <section className="max-w-xl flex-1 animate-in fade-in-0 slide-in-from-bottom-2 duration-700 ease-[var(--ease-premium)]">
+          <Link href="/" className="mb-12 inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground">
             <ArrowLeft size={16} /> Voltar para a Navalha
           </Link>
           <div className="mb-8"><Logo size="lg" /></div>
@@ -75,13 +77,13 @@ export default function CadastroPage() {
           <p className="mt-5 max-w-lg text-base leading-7 text-muted-foreground">Escolha seu tipo de conta. Essa escolha define os recursos disponíveis para manter cada experiência simples e segura.</p>
         </section>
 
-        <section className="w-full max-w-xl rounded-3xl border border-border bg-card p-5 shadow-2xl shadow-black/20 sm:p-7">
+        <section className="w-full max-w-xl animate-in fade-in-0 slide-in-from-bottom-2 rounded-3xl border border-border bg-card/95 p-5 shadow-2xl shadow-black/20 backdrop-blur-md duration-700 ease-[var(--ease-premium)] [animation-delay:100ms] sm:p-7">
           <form onSubmit={onSubmit}>
             <div className="grid gap-3 sm:grid-cols-2">
               {(Object.keys(roles) as Array<'client' | 'barber'>).map((item) => {
                 const isSelected = role === item
                 const Icon = item === 'client' ? UserRound : Scissors
-                return <button key={item} type="button" onClick={() => setRole(item)} aria-pressed={isSelected} className={cn('rounded-2xl border p-5 text-left transition-colors duration-200', isSelected ? 'border-primary bg-primary/10 ring-1 ring-primary' : 'border-border hover:border-primary/50')}><div className="flex items-center justify-between"><span className={cn('grid size-10 place-items-center rounded-xl', isSelected ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground')}><Icon size={19} /></span>{isSelected && <span className="grid size-6 place-items-center rounded-full bg-primary text-primary-foreground"><Check size={14} /></span>}</div><p className="mt-5 font-semibold">{roles[item].label}</p><p className="mt-2 text-sm leading-6 text-muted-foreground">{roles[item].description}</p></button>
+                return <button key={item} type="button" onClick={() => setRole(item)} aria-pressed={isSelected} className={cn('rounded-2xl border p-5 text-left transition-all duration-200 hover:-translate-y-0.5', isSelected ? 'border-primary bg-primary/10 ring-1 ring-primary' : 'border-border hover:border-primary/50')}><div className="flex items-center justify-between"><span className={cn('grid size-10 place-items-center rounded-xl', isSelected ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground')}><Icon size={19} /></span>{isSelected && <span className="grid size-6 place-items-center rounded-full bg-primary text-primary-foreground"><Check size={14} /></span>}</div><p className="mt-5 font-semibold">{roles[item].label}</p><p className="mt-2 text-sm leading-6 text-muted-foreground">{roles[item].description}</p></button>
               })}
             </div>
             <div className="mt-6 rounded-2xl bg-muted/60 p-5"><p className="text-sm font-semibold">Sua conta inclui</p><ul className="mt-4 grid gap-3">{selected.points.map((point) => <li key={point} className="flex items-center gap-3 text-sm text-muted-foreground"><span className="grid size-5 place-items-center rounded-full bg-primary/15 text-primary"><Check size={12} /></span>{point}</li>)}</ul></div>

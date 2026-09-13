@@ -57,7 +57,7 @@ function BookingRow({ booking, onCancel, cancelling }: { booking: MyBooking; onC
   )
 }
 
-export function MyBookings() {
+export function MyBookings({ onFindBarber }: { onFindBarber?: () => void }) {
   const [bookings, setBookings] = useState<MyBooking[]>([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -103,7 +103,7 @@ export function MyBookings() {
   }
 
   if (loadError && bookings.length === 0) {
-    return <EmptyState icon={AlertTriangle} title="Não foi possível carregar seus agendamentos." description={loadError} />
+    return <EmptyState icon={AlertTriangle} title="Não foi possível carregar seus agendamentos." description={loadError} action={<Button onClick={load} size="sm">Tentar novamente</Button>} />
   }
 
   return (
@@ -112,7 +112,12 @@ export function MyBookings() {
         <h2 className="font-semibold">Próximos agendamentos</h2>
         <div className="mt-4 space-y-3">
           {upcoming.length === 0 && (
-            <EmptyState icon={CalendarX2} title="Você não tem agendamentos futuros." description="Busque um barbeiro online perto de você para marcar um horário." />
+            <EmptyState
+              icon={CalendarX2}
+              title="Você não tem agendamentos futuros."
+              description="Busque um barbeiro online perto de você para marcar um horário."
+              action={onFindBarber && <Button onClick={onFindBarber} size="sm">Encontrar barbeiro</Button>}
+            />
           )}
           {next && (
             <NextBookingCard

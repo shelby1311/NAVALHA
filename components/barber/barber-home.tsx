@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { CalendarDays, Check, DollarSign, Settings2, Users, Wallet, type LucideIcon } from 'lucide-react'
+import { CalendarDays, DollarSign, Settings2, Users, Wallet, type LucideIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
 import { useToast } from '@/components/ui/toast'
 import { apiClient } from '@/lib/api-client'
 import { centsToMoney, type BarberService, type BookingStatus, type BookingWithDetails, type FinancialEntry, type UserProfile } from '@/lib/contracts'
@@ -67,13 +66,6 @@ export function BarberHome({ onSettings, profile }: { onSettings: () => void; pr
 
   const monthRevenue = useMemo(() => finances.filter((e) => e.type === 'income' && isCurrentMonth(e.entryDate)).reduce((acc, e) => acc + e.amountCents, 0), [finances])
 
-  const stats: { label: string; value: string; detail: string; Icon: LucideIcon }[] = [
-    { label: 'Hoje', value: String(todayBookings.length), detail: 'agendamentos', Icon: CalendarDays },
-    { label: 'Fila agora', value: String(queue.length), detail: 'clientes aguardando', Icon: Users },
-    { label: 'Receita do mês', value: centsToMoney(monthRevenue), detail: 'entradas no mês', Icon: Wallet },
-    { label: 'Online', value: profile.isOnline ? 'Ativo' : 'Inativo', detail: 'visível para clientes', Icon: Check },
-  ]
-
   const nav: { key: Section; label: string; icon: LucideIcon }[] = [
     { key: 'overview', label: 'Visão geral', icon: CalendarDays },
     { key: 'queue', label: 'Fila ao vivo', icon: Users },
@@ -83,29 +75,35 @@ export function BarberHome({ onSettings, profile }: { onSettings: () => void; pr
 
   return (
     <div className="mx-auto max-w-7xl pb-10">
-      <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+      <div className="mb-10 flex flex-wrap items-start justify-between gap-6">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary">Painel da barbearia</p>
           <h1 className="mt-2 font-serif text-3xl font-semibold tracking-tight sm:text-4xl">Bom dia, {profile.name.split(' ')[0]}.</h1>
-          <p className="mt-2 text-sm text-muted-foreground">Sua operação em um só lugar.</p>
+          <p className="mt-2 text-sm text-muted-foreground">Seu resumo de hoje.</p>
+
+          {/* Um elemento dominante (os dois números reais do dia) + fatos
+              auxiliares discretos ao lado — nada de quatro cards do mesmo peso. */}
+          <div className="mt-7 flex flex-wrap items-end gap-x-10 gap-y-4">
+            <div>
+              <p className="font-serif text-4xl font-semibold tracking-tight sm:text-5xl">{todayBookings.length}</p>
+              <p className="mt-1 text-xs text-muted-foreground">agendamento{todayBookings.length === 1 ? '' : 's'} hoje</p>
+            </div>
+            <div>
+              <p className="font-serif text-4xl font-semibold tracking-tight text-primary sm:text-5xl">{centsToMoney(monthRevenue)}</p>
+              <p className="mt-1 text-xs text-muted-foreground">receita do mês</p>
+            </div>
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-2 pb-1 text-xs text-muted-foreground">
+              <span className="inline-flex items-center gap-1.5"><Users size={13} />{queue.length} na fila</span>
+              <span className={cn('inline-flex items-center gap-1.5', profile.isOnline && 'text-emerald-400')}>
+                <span className="size-1.5 rounded-full bg-current" />{profile.isOnline ? 'Online' : 'Offline'}
+              </span>
+            </div>
+          </div>
         </div>
         <Button onClick={onSettings} variant="outline" size="lg" className="px-4 py-3"><Settings2 size={16} /> Configurações</Button>
       </div>
 
-      <div className="stats-grid">
-        {stats.map(({ label, value, detail, Icon }) => (
-          <Card key={label} className="p-5">
-            <div className="flex items-center justify-between">
-              <p className="text-xs text-muted-foreground">{label}</p>
-              <span className="rounded-lg bg-primary/10 p-2 text-primary"><Icon size={16} /></span>
-            </div>
-            <p className="mt-5 text-2xl font-semibold tracking-tight">{value}</p>
-            <p className="mt-1 text-xs text-muted-foreground">{detail}</p>
-          </Card>
-        ))}
-      </div>
-
-      <div className="mt-6 grid gap-6 lg:grid-cols-[220px_1fr]">
+      <div className="grid gap-6 lg:grid-cols-[220px_1fr]">
         <aside className="flex gap-2 overflow-x-auto lg:flex-col">
           {nav.map(({ key, label, icon: Icon }) => (
             <button key={key} onClick={() => setSection(key)} aria-current={section === key ? 'page' : undefined} className={cn('flex shrink-0 items-center gap-3 rounded-xl px-4 py-3 text-left text-sm transition-colors duration-200', section === key ? 'bg-primary text-primary-foreground' : 'border border-border bg-card text-muted-foreground hover:text-foreground')}>

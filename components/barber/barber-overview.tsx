@@ -1,4 +1,4 @@
-import { CalendarCheck, ChevronRight } from 'lucide-react'
+import { CalendarCheck } from 'lucide-react'
 import { Avatar } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
@@ -40,30 +40,32 @@ export function BarberOverview({ todayBookings, updating, onChangeStatus, loadin
         </Card>
       ) : null}
 
-      <div className="mt-6 flex items-center gap-2 text-xs text-muted-foreground"><ChevronRight size={14} /> Agenda completa de hoje</div>
-      <div className="mt-3 space-y-3">
+      <p className="mt-8 text-xs font-medium uppercase tracking-[0.15em] text-muted-foreground">Agenda completa</p>
+      <div className="mt-3">
         {loading ? (
-          <>
+          <div className="space-y-3">
             <Skeleton className="h-16 w-full" />
             <Skeleton className="h-16 w-full" />
-          </>
+          </div>
         ) : todayBookings.length === 0 ? (
           <EmptyState icon={CalendarCheck} title="Nenhum agendamento para hoje." description="Sua agenda está livre — novos pedidos aparecem aqui em tempo real." />
         ) : (
-          todayBookings.map((b) => (
-            <Card key={b.id} className="flex flex-wrap items-center gap-3 p-4">
-              <span className="w-16 text-sm font-semibold">{new Date(b.scheduledAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
-              <Avatar name={b.clientName} size="sm" />
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium">{b.clientName}</p>
-                <p className="mt-1 text-xs text-muted-foreground">{b.serviceName}</p>
+          <div className="divide-y divide-border rounded-xl border border-border">
+            {todayBookings.map((b) => (
+              <div key={b.id} className="flex flex-wrap items-center gap-3 p-4">
+                <span className="w-16 text-sm font-semibold">{new Date(b.scheduledAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
+                <Avatar name={b.clientName} size="sm" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium">{b.clientName}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{b.serviceName}</p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant={statusBadgeVariant(b.status)}>{statusLabel(b.status)}</Badge>
+                  <BookingActions booking={b} updating={updating} onChangeStatus={onChangeStatus} />
+                </div>
               </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge variant={statusBadgeVariant(b.status)}>{statusLabel(b.status)}</Badge>
-                <BookingActions booking={b} updating={updating} onChangeStatus={onChangeStatus} />
-              </div>
-            </Card>
-          ))
+            ))}
+          </div>
         )}
       </div>
     </>
