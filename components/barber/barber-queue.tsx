@@ -21,8 +21,8 @@ export function BarberQueue({ queue, updating, onChangeStatus, loading }: Props)
           <EmptyState icon={Users} title="Ninguém na fila agora." description="Clientes confirmados aparecem aqui assim que entram na fila de espera." />
         ) : (
           queue.map((b, index) => (
-            <div key={b.id} className="flex items-center gap-3 rounded-xl bg-muted/60 p-4">
-              <span className="grid size-8 place-items-center rounded-full bg-primary text-sm font-semibold text-primary-foreground">{index + 1}</span>
+            <div key={b.id} className="flex items-center gap-3 rounded-xl border border-border/50 bg-muted/60 p-4 transition-colors duration-200">
+              <span className="grid size-8 shrink-0 place-items-center rounded-full bg-primary text-sm font-semibold text-primary-foreground">{index + 1}</span>
               <div className="flex-1">
                 <p className="text-sm">{b.clientName}</p>
                 <p className="text-xs text-muted-foreground">{b.serviceName}</p>
