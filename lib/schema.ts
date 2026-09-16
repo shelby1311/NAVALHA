@@ -34,7 +34,7 @@ export const user = pgTable('user', {
   isOnline: boolean('is_online').default(false),
   // Horário de funcionamento por dia da semana: { mon: { open, close, active }, ... }
   openingHours: json('opening_hours').$type<Record<string, { open: string; close: string; active: boolean }>>(),
-})
+}).enableRLS()
 
 export const session = pgTable(
   'session',
@@ -49,7 +49,7 @@ export const session = pgTable(
     userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
   },
   (table) => [index('session_userId_idx').on(table.userId)],
-)
+).enableRLS()
 
 export const account = pgTable(
   'account',
@@ -70,7 +70,7 @@ export const account = pgTable(
     updatedAt: timestamp('updated_at').$onUpdate(() => new Date()).notNull(),
   },
   (table) => [index('account_userId_idx').on(table.userId)],
-)
+).enableRLS()
 
 export const verification = pgTable(
   'verification',
@@ -83,7 +83,7 @@ export const verification = pgTable(
     updatedAt: timestamp('updated_at').defaultNow().$onUpdate(() => new Date()).notNull(),
   },
   (table) => [index('verification_identifier_idx').on(table.identifier)],
-)
+).enableRLS()
 
 export const userRelations = relations(user, ({ many }) => ({
   sessions: many(session),
@@ -110,7 +110,7 @@ export const barberService = pgTable('barber_service', {
   durationMinutes: integer('duration_minutes').notNull(),
   active: boolean('active').notNull().default(true),
   createdAt: timestamp('created_at').defaultNow().notNull(),
-})
+}).enableRLS()
 
 export const booking = pgTable(
   'booking',
@@ -129,7 +129,7 @@ export const booking = pgTable(
       .on(table.barberId, table.scheduledAt)
       .where(sql`${table.status} <> 'cancelled'`),
   ],
-)
+).enableRLS()
 
 export const financialEntry = pgTable(
   'financial_entry',
@@ -150,7 +150,7 @@ export const financialEntry = pgTable(
     uniqueIndex('financial_entry_booking_id_unique').on(table.bookingId).where(sql`${table.bookingId} is not null`),
     check('financial_entry_amount_positive', sql`${table.amountCents} > 0`),
   ],
-)
+).enableRLS()
 
 // Objeto de schema usado pelo adapter do better-auth e pelo Drizzle.
 export const schema = { user, session, account, verification, barberService, booking, financialEntry }
